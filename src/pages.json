@@ -1,0 +1,17 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "吃什么",
+        "navigationStyle": "custom"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "吃什么",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F7F7F9"
+  }
+}
