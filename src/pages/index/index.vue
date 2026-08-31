@@ -15,6 +15,12 @@
       </view>
     </view>
 
+    <view class="tools-card">
+      <button class="tool-btn" :class="{ active: showFavOnly }" @tap="toggleFavOnly">⭐ 只看收藏</button>
+      <button class="tool-btn" @tap="openHistory">🕘 历史</button>
+      <button class="tool-btn" @tap="openVip">💎 VIP</button>
+    </view>
+
     <!-- 筛选 -->
     <view class="card">
       <text class="card-title">按主食筛选</text>
@@ -42,13 +48,14 @@
         <text class="muted">手动标记可排除</text>
       </view>
       <view class="food-list">
-        <view v-if="poolCount === 0" class="empty">没有符合条件的食物，试着放宽筛选</view>
-        <view v-for="f in currentPool" :key="f.id" class="food-card">
+        <view v-if="displayPool.length === 0" class="empty">{{ showFavOnly ? '还没有收藏的菜' : '没有符合条件的食物，试着放宽筛选' }}</view>
+        <view v-for="f in displayPool" :key="f.id" class="food-card">
           <view class="food-main">
             <text class="food-name">{{ f.name }}</text>
             <text class="food-meta">{{ f.staples.join(' / ') }} · {{ f.tastes.join(' ') }}</text>
           </view>
           <view class="food-actions">
+            <button class="btn small ghost fav" @tap="favFood(f.id)">{{ isFavorite(f.id) ? '♥' : '♡' }}</button>
             <button class="btn small ghost" @tap="markUnwanted(f.id)">不想吃</button>
             <button class="btn small ghost danger" @tap="onDelete(f.id)">删</button>
           </view>
@@ -88,6 +95,7 @@
         </view>
         <text v-if="resultFood.note" class="note">{{ resultFood.note }}</text>
         <text class="mark-line">已标记：最近吃过</text>
+        <button class="btn small ghost fav result-fav" @tap="favFood(resultFood.id)">{{ isFavorite(resultFood.id) ? '♥ 已收藏' : '♡ 收藏' }}</button>
         <view class="modal-actions">
           <button class="btn" @tap="chooseTakeout">🛵 点外卖</button>
           <button class="btn primary" @tap="chooseCook">🍳 自己做</button>
@@ -160,6 +168,47 @@
       </view>
     </view>
 
+    <!-- 历史弹窗 -->
+    <view v-if="historyVisible" class="overlay" @tap.self="closeHistory">
+      <view class="modal">
+        <button class="modal-close" @tap="closeHistory">×</button>
+        <text class="modal-title">历史记录</text>
+        <view class="section-head">
+          <text class="muted">最近 {{ state.history.length }} 条</text>
+          <button class="btn small ghost" @tap="confirmClearHistory">清空</button>
+        </view>
+        <view class="marks-list">
+          <view v-if="state.history.length === 0" class="empty">还没有历史记录，抽中后会记录在这里</view>
+          <view v-for="h in state.history" :key="'h'+h.id+h.ts" class="mark-row">
+            <view class="mark-dot hist"></view>
+            <view class="mark-info">
+              <text class="mark-name">{{ h.name }}</text>
+              <text class="mark-small">{{ formatTime(h.ts) }}</text>
+            </view>
+            <button class="btn small ghost fav" @tap="favFood(h.id)">{{ isFavorite(h.id) ? '♥' : '♡' }}</button>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- VIP 弹窗 -->
+    <view v-if="vipVisible" class="overlay" @tap.self="closeVip">
+      <view class="modal">
+        <button class="modal-close" @tap="closeVip">×</button>
+        <text class="modal-title">VIP 会员</text>
+        <view class="vip-status" :class="{ on: isVip() }">
+          <text class="vip-badge">{{ isVip() ? '💎 已开通' : '未开通' }}</text>
+          <text v-if="isVip()" class="vip-expire">{{ vipExpireText }}</text>
+          <text v-else class="muted">使用兑换码开通，享更多功能</text>
+        </view>
+        <view class="field">
+          <text class="field-label">兑换码</text>
+          <input class="input" v-model="vipCode" placeholder="请输入兑换码" />
+        </view>
+        <button class="btn primary" @tap="redeem" :disabled="vipBusy">{{ vipBusy ? '兑换中…' : '立即兑换' }}</button>
+      </view>
+    </view>
+
     <view class="toast" :class="{ show: toastShow }">{{ toastMsg }}</view>
   </view>
 </template>
@@ -169,8 +218,11 @@ import { ref, computed, onMounted, watch, getCurrentInstance } from 'vue'
 import {
   state, currentPool, activeMarks, STAPLES, TASTES, WHEEL_COLORS,
   initStore, toggleFilter, markFood, unmarkFood, clearMarks, saveSettings,
-  addCustomFood, deleteFood, spin, spinStep, stopResult, findFood, remainText
+  addCustomFood, deleteFood, spin, spinStep, stopResult, findFood, remainText,
+  isFavorite, toggleFavorite, clearHistory, isVip
 } from '@/store/food'
+import { saveToCloud, refreshVip } from '@/utils/sync'
+import { callApi } from '@/utils/cloudbase'
 
 const instance = getCurrentInstance()
 const staples = STAPLES
@@ -195,7 +247,27 @@ const resultGuideGood = ref(false)
 const form = ref({ name: '', staples: [], tastes: [], note: '', recipe: '' })
 const settingsForm = ref({ memoryValue: 3, memoryUnit: '天', includeMarked: false })
 
+const showFavOnly = ref(false)
+const historyVisible = ref(false)
+const vipVisible = ref(false)
+const vipCode = ref('')
+const vipBusy = ref(false)
+
+const displayPool = computed(() => {
+  if (!showFavOnly.value) return currentPool.value
+  return currentPool.value.filter(f => isFavorite(f.id))
+})
+
 const poolCount = computed(() => currentPool.value.length)
+
+const vipExpireText = computed(() => {
+  const v = state.vip
+  if (!v || !v.expireAt) return ''
+  const d = new Date(v.expireAt)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return '到期 ' + d.getFullYear() + '-' + mm + '-' + dd
+})
 
 function toast(msg) {
   toastMsg.value = msg
@@ -218,7 +290,7 @@ function drawWheel() {
   const size = canvasSize
   const cx = size / 2, cy = size / 2, r = size / 2 - 6
   ctx.clearRect(0, 0, size, size)
-  const arr = currentPool.value
+  const arr = displayPool.value
   state.wheelPool = arr
   if (!arr.length) {
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.setFillStyle('#eee'); ctx.fill()
@@ -276,7 +348,7 @@ function shortName(name) {
 }
 
 function onSpin() {
-  const prev = spin()
+  const prev = spin(displayPool.value)
   if (!prev) { toast('没有符合条件的食物'); return }
   const stepFn = () => {
     const res = spinStep(prev, Date.now())
@@ -396,13 +468,60 @@ function submitSettings() {
   saveToCloud()
 }
 
+function toggleFavOnly() { showFavOnly.value = !showFavOnly.value }
+
+function favFood(id) {
+  toggleFavorite(id)
+  toast(isFavorite(id) ? '已收藏' : '已取消收藏')
+  saveToCloud()
+}
+
+function openHistory() { historyVisible.value = true }
+function closeHistory() { historyVisible.value = false }
+function confirmClearHistory() {
+  uni.showModal({
+    title: '提示', content: '确定清空历史记录吗？',
+    success: (res) => {
+      if (res.confirm) { clearHistory(); toast('已清空历史'); saveToCloud() }
+    }
+  })
+}
+function formatTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return d.getFullYear() + '-' + mm + '-' + dd + ' ' + hh + ':' + mi
+}
+
+function openVip() { vipVisible.value = true }
+function closeVip() { vipVisible.value = false }
+async function redeem() {
+  const code = vipCode.value.trim()
+  if (!code) { toast('请输入兑换码'); return }
+  vipBusy.value = true
+  try {
+    await callApi('redeemVip', { code })
+    await refreshVip()
+    vipCode.value = ''
+    vipVisible.value = false
+    toast('兑换成功，已升级 VIP')
+  } catch (e) {
+    toast((e && e.message) || '兑换码无效')
+  } finally {
+    vipBusy.value = false
+  }
+}
+
 onMounted(() => {
   initStore()
   settingsForm.value = { memoryValue: state.settings.memoryValue, memoryUnit: state.settings.memoryUnit, includeMarked: state.settings.includeMarked }
   drawWheel()
 })
 
-watch(currentPool, () => drawWheel())
+watch(displayPool, () => drawWheel())
 </script>
 
 <style>
@@ -473,6 +592,17 @@ watch(currentPool, () => drawWheel())
 .checkbox.on { background: #ff6b35; border-color: #ff6b35; }
 .toast { position: fixed; left: 50%; bottom: 80px; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity 0.2s; z-index: 200; pointer-events: none; }
 .toast.show { opacity: 1; }
+.tools-card { display: flex; gap: 8px; margin-bottom: 12px; }
+.tool-btn { flex: 1; border: 1px solid #ddd; background: #fff; padding: 8px 0; border-radius: 10px; font-size: 13px; color: #333; text-align: center; }
+.tool-btn.active { background: #ff6b35; color: #fff; border-color: #ff6b35; }
+.btn.fav { color: #ff6b35; border-color: #ffcfc5; }
+.mark-dot.hist { background: #54a0ff; }
+.result-fav { width: 100%; margin-bottom: 10px; }
+.vip-status { border: 1px solid #f0d6a0; background: #fff8e8; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.vip-status.on { border-color: #ffcf00; background: #fffbe6; }
+.vip-badge { font-size: 18px; font-weight: 700; color: #d48806; display: block; }
+.vip-status.on .vip-badge { color: #b8860b; }
+.vip-expire { font-size: 13px; color: #888; display: block; margin-top: 4px; }
 </style>
 
 

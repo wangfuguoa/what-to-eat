@@ -10,7 +10,10 @@ const LS = {
   custom: 'eatpick_custom_foods',
   hidden: 'eatpick_hidden_ids',
   marks: 'eatpick_marks',
-  settings: 'eatpick_settings'
+  settings: 'eatpick_settings',
+  favorites: 'eatpick_favorites',
+  history: 'eatpick_history',
+  vip: 'eatpick_vip'
 }
 
 function load(key, fallback) {
@@ -32,6 +35,9 @@ export const state = reactive({
   custom: [],
   hidden: [],
   marks: {},
+  favorites: [],
+  history: [],
+  vip: null,
   settings: { memoryValue: 3, memoryUnit: '天', includeMarked: false },
   selStaples: [],
   selTastes: [],
@@ -120,6 +126,9 @@ export function initStore() {
   state.marks = load(LS.marks, {})
   const s = load(LS.settings, {})
   state.settings = Object.assign({ memoryValue: 3, memoryUnit: '天', includeMarked: false }, s)
+  state.favorites = load(LS.favorites, [])
+  state.history = load(LS.history, [])
+  state.vip = load(LS.vip, null)
   purgeExpired()
 }
 
@@ -143,6 +152,42 @@ export function unmarkFood(id) {
 export function clearMarks() {
   state.marks = {}
   save(LS.marks, state.marks)
+}
+
+export function isFavorite(id) {
+  return state.favorites.indexOf(id) !== -1
+}
+
+export function toggleFavorite(id) {
+  const idx = state.favorites.indexOf(id)
+  if (idx >= 0) state.favorites.splice(idx, 1)
+  else state.favorites.push(id)
+  save(LS.favorites, state.favorites)
+}
+
+export function addHistory(item) {
+  if (!item) return
+  const entry = { id: item.id, name: item.name, ts: Date.now() }
+  const idx = state.history.findIndex(h => h.id === item.id)
+  if (idx >= 0) state.history.splice(idx, 1)
+  state.history.unshift(entry)
+  if (state.history.length > 30) state.history.length = 30
+  save(LS.history, state.history)
+}
+
+export function clearHistory() {
+  state.history = []
+  save(LS.history, state.history)
+}
+
+export function isVip() {
+  const v = state.vip
+  return !!(v && v.status === 'active' && v.expireAt && v.expireAt > Date.now())
+}
+
+export function setVip(vip) {
+  state.vip = vip || null
+  save(LS.vip, state.vip)
 }
 
 export function saveSettings(settings) {
@@ -173,9 +218,9 @@ export function deleteFood(id) {
   save(LS.marks, state.marks)
 }
 
-export function spin() {
+export function spin(pool) {
   if (state.spinning) return null
-  const arr = currentPool.value
+  const arr = pool || currentPool.value
   if (arr.length === 0) return null
   state.spinning = true
   const start = state.wheelAngle
@@ -208,6 +253,7 @@ export function stopResult(prev) {
   const item = arr[idx]
   state.lastResultId = item.id
   markFood(item.id, 'eaten')
+  addHistory(item)
   return item
 }
 
@@ -225,3 +271,4 @@ export const activeMarks = computed(() => {
 })
 
 export { allFoods, visibleFoods, isMarked, remainText }
+
