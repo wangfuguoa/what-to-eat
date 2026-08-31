@@ -297,6 +297,7 @@ function showResult(f) {
   resultGuide.value = ''
   resultGuideGood.value = false
   resultVisible.value = true
+  saveToCloud()
 }
 
 function closeResult() { resultVisible.value = false }
@@ -326,11 +327,13 @@ function toggleTaste(t) { toggleFilter('taste', t) }
 function markUnwanted(id) {
   markFood(id, 'unwanted')
   toast('已标记「不想吃」，' + remainText(id) + '内不再出现')
+  saveToCloud()
 }
 
 function onUnmark(id) {
   unmarkFood(id)
   toast('已取消标记')
+  saveToCloud()
 }
 
 function clearAllMarks() {
@@ -338,7 +341,7 @@ function clearAllMarks() {
     title: '提示',
     content: '确定清除所有标记吗？',
     success: (res) => {
-      if (res.confirm) { clearMarks(); toast('已清除所有标记') }
+      if (res.confirm) { clearMarks(); toast('已清除所有标记'); saveToCloud() }
     }
   })
 }
@@ -349,7 +352,7 @@ function onDelete(id) {
     title: '提示',
     content: '删除「' + (f ? f.name : '') + '」？',
     success: (res) => {
-      if (res.confirm) { deleteFood(id); toast('已删除') }
+      if (res.confirm) { deleteFood(id); toast('已删除'); saveToCloud() }
     }
   })
 }
@@ -374,6 +377,7 @@ function saveFood() {
   addCustomFood({ name, staples: [...form.value.staples], tastes: [...form.value.tastes], note: form.value.note.trim(), recipe })
   closeAdd()
   toast('已添加「' + name + '」')
+  saveToCloud()
 }
 
 function openSettings() {
@@ -389,6 +393,7 @@ function submitSettings() {
   saveSettings({ memoryValue: v, memoryUnit: settingsForm.value.memoryUnit, includeMarked: !!settingsForm.value.includeMarked })
   closeSettings()
   toast('设置已保存')
+  saveToCloud()
 }
 
 onMounted(() => {
@@ -469,5 +474,6 @@ watch(currentPool, () => drawWheel())
 .toast { position: fixed; left: 50%; bottom: 80px; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity 0.2s; z-index: 200; pointer-events: none; }
 .toast.show { opacity: 1; }
 </style>
+
 
 

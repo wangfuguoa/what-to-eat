@@ -1,0 +1,9 @@
+{
+  "name": "eatpick-api",
+  "version": "1.0.0",
+  "description": "吃什么：CloudBase 统一接口（匿名登录/收藏/历史/自定义菜谱/标记/VIP）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

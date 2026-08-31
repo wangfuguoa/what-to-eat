@@ -1,0 +1,15 @@
+{
+  "envId": "codex-d2glhcz9z707d54bb",
+  "version": "2.0",
+  "functions": [
+    {
+      "name": "eatpick-api",
+      "timeout": 10,
+      "memorySize": 256,
+      "runtime": "Nodejs18.15",
+      "installDependency": true,
+      "handler": "index.main",
+      "dir": "eatpick-api"
+    }
+  ]
+}
