@@ -1,0 +1,36 @@
+name: Deploy to CloudBase Static Hosting
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    # 只允许本仓库触发，避免被 fork 乱用
+    if: github.repository == 'wangfuguoa/what-to-eat'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (China mirror)
+        run: npm ci --legacy-peer-deps --registry=https://registry.npmmirror.com
+
+      - name: Build H5
+        run: npm run build
+
+      - name: Install CloudBase CLI
+        run: npm install -g @cloudbase/cli
+
+      - name: Login CloudBase
+        run: tcb login --apiKeyId ${{ secrets.TCB_SECRET_ID }} --apiKey ${{ secrets.TCB_SECRET_KEY }}
+
+      - name: Deploy to CloudBase Static Hosting
+        run: tcb hosting deploy ./dist/build/h5 / -e ${{ secrets.TCB_ENV_ID }}
