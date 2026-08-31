@@ -203,7 +203,7 @@
         </view>
         <view class="field">
           <text class="field-label">兑换码</text>
-          <input class="input" v-model="vipCode" placeholder="请输入兑换码" />
+          <input class="input vip-input" v-model="vipCode" maxlength="32" confirm-type="done" @confirm="redeem" :focus="vipFocus" placeholder="请输入兑换码，如 VIP2026" />
         </view>
         <button class="btn primary" @tap="redeem" :disabled="vipBusy">{{ vipBusy ? '兑换中…' : '立即兑换' }}</button>
       </view>
@@ -252,6 +252,7 @@ const historyVisible = ref(false)
 const vipVisible = ref(false)
 const vipCode = ref('')
 const vipBusy = ref(false)
+const vipFocus = ref(false)
 
 const displayPool = computed(() => {
   if (!showFavOnly.value) return currentPool.value
@@ -496,8 +497,8 @@ function formatTime(ts) {
   return d.getFullYear() + '-' + mm + '-' + dd + ' ' + hh + ':' + mi
 }
 
-function openVip() { vipVisible.value = true }
-function closeVip() { vipVisible.value = false }
+function openVip() { vipVisible.value = true; vipFocus.value = true }
+function closeVip() { vipVisible.value = false; vipFocus.value = false }
 async function redeem() {
   const code = vipCode.value.trim()
   if (!code) { toast('请输入兑换码'); return }
@@ -603,6 +604,7 @@ watch(displayPool, () => drawWheel())
 .vip-badge { font-size: 18px; font-weight: 700; color: #d48806; display: block; }
 .vip-status.on .vip-badge { color: #b8860b; }
 .vip-expire { font-size: 13px; color: #888; display: block; margin-top: 4px; }
+.vip-input { font-size: 16px; min-height: 44px; padding: 12px; box-sizing: border-box; }
 </style>
 
 

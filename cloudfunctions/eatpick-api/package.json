@@ -4,6 +4,7 @@
   "description": "吃什么：CloudBase 统一接口（匿名登录/收藏/历史/自定义菜谱/标记/VIP）",
   "main": "index.js",
   "dependencies": {
+    "@cloudbase/node-sdk": "~3.18.3",
     "wx-server-sdk": "~2.6.3"
   }
 }
