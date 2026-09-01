@@ -437,6 +437,7 @@ function autoReplay() {
 function addAndRespin() {
   if (!recommendResult.value) return
   confirmDish(recommendResult.value)
+  resetDishPool()
   autoReplay()
 }
 
@@ -636,6 +637,9 @@ watch(mode, (m) => { if (m === 'wheel') nextTick(drawWheel) })
 .toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: rgba(0,0,0,0.82); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity 0.2s; z-index: 200; pointer-events: none; max-width: 80vw; text-align: center; }
 .toast.show { opacity: 1; }
 </style>
+
+
+
 
 
 
