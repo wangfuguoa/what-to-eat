@@ -6,6 +6,20 @@
         "navigationBarTitleText": "吃什么",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/pool/pool",
+      "style": {
+        "navigationBarTitleText": "菜谱随机池",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/mine",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {
@@ -13,5 +27,16 @@
     "navigationBarTitleText": "吃什么",
     "navigationBarBackgroundColor": "#F8F8F8",
     "backgroundColor": "#F7F7F9"
+  },
+  "tabBar": {
+    "color": "#9a8f83",
+    "selectedColor": "#ff6b35",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "首页" },
+      { "pagePath": "pages/pool/pool", "text": "随机池" },
+      { "pagePath": "pages/mine/mine", "text": "我的" }
+    ]
   }
 }

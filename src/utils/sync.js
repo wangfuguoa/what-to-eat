@@ -11,6 +11,7 @@ function snapshot() {
   return {
     favorites: state.favorites || [],
     history: state.history || [],
+    menu: state.menu || [],
     customFoods: state.custom || [],
     marks: state.marks || {},
     settings: state.settings || {}
@@ -46,6 +47,9 @@ function mergeFromCloud(data) {
   if (!state.history || state.history.length === 0) {
     if (Array.isArray(data.history) && data.history.length) state.history = data.history
   }
+  if (!state.menu || state.menu.length === 0) {
+    if (Array.isArray(data.menu) && data.menu.length) state.menu = data.menu
+  }
   // VIP 以服务端为准
   if (data.vip && typeof data.vip === 'object') setVip(data.vip)
 }
@@ -73,3 +77,4 @@ export async function refreshVip() {
   if (data && data.vip && typeof data.vip === 'object') setVip(data.vip)
   return state.vip
 }
+

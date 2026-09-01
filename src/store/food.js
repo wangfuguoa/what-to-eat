@@ -1,8 +1,18 @@
 import { reactive, computed } from 'vue'
-import { BUILTIN_FOODS } from '@/data/foods'
+import { BUILTIN_FOODS, FOOD_META } from '@/data/foods'
 
 export const STAPLES = ['米饭', '面条', '馒头', '包子', '饺子', '饼', '粥', '粉', '无']
 export const TASTES = ['酸', '甜', '苦', '辣', '咸', '鲜', '香', '麻', '清淡']
+export const HOW_OPTIONS = ['点外卖', '出去吃', '自己做']
+export const HOW_TAGS = { '点外卖': '外卖', '出去吃': '外出', '自己做': '自己做' }
+export const PURPOSE_OPTIONS = ['减肥', '增肌', '平衡', '术后', '高蛋白', '低卡']
+export const CUISINE_OPTIONS = ['川菜', '鲁菜', '粤菜', '苏菜', '闽菜', '浙菜', '湘菜', '徽菜', '家常', '其他']
+export const CATEGORY_OPTIONS = ['肉菜', '素菜', '主食', '汤羹', '小吃', '甜品']
+export const RECOMMEND_MODES = [
+  { key: 'wheel', label: '转盘', icon: '🎡' },
+  { key: 'draw', label: '抽签', icon: '🥢' },
+  { key: 'flip', label: '翻牌', icon: '🎴' }
+]
 export const WHEEL_COLORS = ['#ff6b6b', '#feca57', '#1dd1a1', '#54a0ff', '#5f27cd', '#ff9f43', '#f368e0', '#00d2d3', '#ee5253', '#10ac84', '#48dbfb', '#ffd32a']
 
 const MS = { 天: 86400000, 周: 7 * 86400000, 月: 30 * 86400000 }
@@ -13,7 +23,14 @@ const LS = {
   settings: 'eatpick_settings',
   favorites: 'eatpick_favorites',
   history: 'eatpick_history',
-  vip: 'eatpick_vip'
+  vip: 'eatpick_vip',
+  how: 'eatpick_how',
+  purpose: 'eatpick_purpose',
+  cuisine: 'eatpick_cuisine',
+  poolLimit: 'eatpick_pool_limit',
+  menu: 'eatpick_menu',
+  recMode: 'eatpick_rec_mode',
+  theme: 'eatpick_theme'
 }
 
 function load(key, fallback) {
@@ -39,16 +56,35 @@ export const state = reactive({
   history: [],
   vip: null,
   settings: { memoryValue: 3, memoryUnit: '天', includeMarked: false },
+  howToEat: '自己做',
+  selPurpose: [],
+  selCuisine: [],
   selStaples: [],
   selTastes: [],
+  poolLimit: 30,
+  theme: 'orange',
+  menu: [],
+  recommendMode: 'wheel',
+  recommendResult: null,
+  recommendSpinning: false,
   spinning: false,
   wheelAngle: 0,
   wheelPool: [],
+  dishPool: [],
   lastResultId: null
 })
 
+function mergeMeta(f) {
+  const m = FOOD_META[f.id] || {}
+  const how = f.how || m.how || (f.recipe && f.recipe.length ? ['自己做'] : ['外卖', '外出'])
+  const purpose = f.purpose || m.purpose || ['通用']
+  const cuisine = f.cuisine || m.cuisine || '家常'
+  const category = f.category || m.category || '小吃'
+  return Object.assign({}, f, { how, purpose, cuisine, category })
+}
+
 function allFoods() {
-  return BUILTIN_FOODS.concat(state.custom)
+  return BUILTIN_FOODS.concat(state.custom).map(mergeMeta)
 }
 
 function visibleFoods() {
@@ -95,7 +131,17 @@ function expireFromNow(status) {
 
 export const currentPool = computed(() => {
   const active = activeMarksMap()
+  const howTag = HOW_TAGS[state.howToEat]
   return visibleFoods().filter(f => {
+    if (state.howToEat && howTag && f.how.indexOf(howTag) === -1) return false
+    if (state.selPurpose.length) {
+      const ok = state.selPurpose.some(p => f.purpose.includes(p) || f.purpose.includes('通用'))
+      if (!ok) return false
+    }
+    if (state.selCuisine.length) {
+      const ok = state.selCuisine.some(c => f.cuisine === c)
+      if (!ok) return false
+    }
     const okStaple = state.selStaples.length === 0 || f.staples.some(t => state.selStaples.includes(t))
     const okTaste = state.selTastes.length === 0 || f.tastes.some(t => state.selTastes.includes(t))
     if (!okStaple || !okTaste) return false
@@ -113,11 +159,26 @@ function remainText(id) {
   return day >= 1 ? day + '天' : Math.ceil(msLeft / 3600000) + '小时'
 }
 
+function shuffle(arr) {
+  const a = arr.slice()
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const t = a[i]; a[i] = a[j]; a[j] = t
+  }
+  return a
+}
+
 function persist() {
   save(LS.custom, state.custom)
   save(LS.hidden, state.hidden)
   save(LS.marks, state.marks)
   save(LS.settings, state.settings)
+  save(LS.how, state.howToEat)
+  save(LS.purpose, state.selPurpose)
+  save(LS.cuisine, state.selCuisine)
+  save(LS.poolLimit, state.poolLimit)
+  save(LS.menu, state.menu)
+  save(LS.recMode, state.recommendMode)
 }
 
 export function initStore() {
@@ -129,7 +190,14 @@ export function initStore() {
   state.favorites = load(LS.favorites, [])
   state.history = load(LS.history, [])
   state.vip = load(LS.vip, null)
+  state.howToEat = load(LS.how, '自己做')
+  state.selPurpose = load(LS.purpose, [])
+  state.selCuisine = load(LS.cuisine, [])
+  state.poolLimit = Math.max(1, Number(load(LS.poolLimit, 30)) || 30)
+  state.menu = load(LS.menu, [])
+  state.recommendMode = load(LS.recMode, 'wheel')
   purgeExpired()
+  resetDishPool()
 }
 
 export function toggleFilter(type, label) {
@@ -137,6 +205,135 @@ export function toggleFilter(type, label) {
   const idx = arr.indexOf(label)
   if (idx >= 0) arr.splice(idx, 1)
   else arr.push(label)
+  resetDishPool()
+}
+
+export function setHowToEat(v) {
+  state.howToEat = v
+  save(LS.how, v)
+  resetDishPool()
+}
+
+export function togglePurpose(label) {
+  const arr = state.selPurpose
+  const idx = arr.indexOf(label)
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(label)
+  save(LS.purpose, arr)
+  resetDishPool()
+}
+
+export function toggleCuisine(label) {
+  const arr = state.selCuisine
+  const idx = arr.indexOf(label)
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(label)
+  save(LS.cuisine, arr)
+  resetDishPool()
+}
+
+export function setPoolLimit(n) {
+  const v = Math.min(100, Math.max(3, parseInt(n, 10) || 30))
+  state.poolLimit = v
+  save(LS.poolLimit, v)
+  resetDishPool()
+  return v
+}
+
+export function setRecommendMode(mode) {
+  state.recommendMode = mode
+  state.recommendResult = null
+  save(LS.recMode, mode)
+}
+
+export function samplePool() {
+  const arr = shuffle(currentPool.value)
+  const limit = Math.max(1, state.poolLimit)
+  return arr.slice(0, Math.min(limit, arr.length))
+}
+
+export function resetDishPool() {
+  state.dishPool = samplePool()
+  state.recommendResult = null
+  state.recommendSpinning = false
+  return state.dishPool
+}
+
+export function recomposeDishPool() {
+  // 重组：重新取样 + 打乱位置
+  state.dishPool = samplePool()
+  state.recommendResult = null
+  state.recommendSpinning = false
+  return state.dishPool
+}
+
+export function menuHas(id) {
+  return state.menu.some(m => m.id === id)
+}
+
+export function addToMenu(food) {
+  if (!food) return false
+  if (menuHas(food.id)) return false
+  state.menu.push({ id: food.id, name: food.name, how: food.how, recipe: food.recipe || [], note: food.note || '' })
+  save(LS.menu, state.menu)
+  return true
+}
+
+export function removeFromMenu(id) {
+  state.menu = state.menu.filter(m => m.id !== id)
+  save(LS.menu, state.menu)
+}
+
+export function spinModule(kind) {
+  let v = null
+  if (kind === 'how') {
+    v = HOW_OPTIONS[Math.floor(Math.random() * HOW_OPTIONS.length)]
+    setHowToEat(v)
+    return v
+  }
+  if (kind === 'purpose') {
+    v = PURPOSE_OPTIONS[Math.floor(Math.random() * PURPOSE_OPTIONS.length)]
+    state.selPurpose = [v]
+    save(LS.purpose, state.selPurpose)
+    resetDishPool()
+    return v
+  }
+  if (kind === 'cuisine') {
+    v = CUISINE_OPTIONS[Math.floor(Math.random() * CUISINE_OPTIONS.length)]
+    state.selCuisine = [v]
+    save(LS.cuisine, state.selCuisine)
+    resetDishPool()
+    return v
+  }
+  if (kind === 'staple') {
+    v = STAPLES[Math.floor(Math.random() * STAPLES.length)]
+    state.selStaples = [v]
+    resetDishPool()
+    return v
+  }
+  if (kind === 'taste') {
+    v = TASTES[Math.floor(Math.random() * TASTES.length)]
+    state.selTastes = [v]
+    resetDishPool()
+    return v
+  }
+  return null
+}
+
+export function pickRecommend(pool) {
+  const arr = pool || state.dishPool
+  if (!arr.length) return null
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+export function resultFromAngle(arr, angle) {
+  if (!arr || !arr.length) return null
+  const pointer = -Math.PI / 2
+  const n = arr.length
+  const slice = (Math.PI * 2) / n
+  let delta = (pointer - angle) % (Math.PI * 2)
+  if (delta < 0) delta += Math.PI * 2
+  let idx = Math.floor(delta / slice)
+  if (idx >= n) idx = n - 1
+  return arr[idx]
 }
 
 export function markFood(id, status) {
@@ -204,8 +401,10 @@ export function addCustomFood(food) {
   const id = slug(food.name) + '-' + Date.now().toString(36)
   if (!food.staples.length) food.staples = ['无']
   if (!food.tastes.length) food.tastes = ['咸']
-  state.custom.push({ id, name: food.name, staples: food.staples, tastes: food.tastes, note: food.note || '', recipe: food.recipe || [] })
+  const f = { id, name: food.name, staples: food.staples, tastes: food.tastes, note: food.note || '', recipe: food.recipe || [], how: food.how || (food.recipe && food.recipe.length ? ['自己做'] : ['外卖', '外出']), purpose: food.purpose || ['通用'], cuisine: food.cuisine || '家常', category: food.category || '小吃' }
+  state.custom.push(f)
   save(LS.custom, state.custom)
+  resetDishPool()
   return id
 }
 
@@ -216,6 +415,7 @@ export function deleteFood(id) {
   delete state.marks[id]
   save(LS.hidden, state.hidden)
   save(LS.marks, state.marks)
+  resetDishPool()
 }
 
 export function spin(pool) {
@@ -243,14 +443,7 @@ export function spinStep(prev, nowMs) {
 export function stopResult(prev) {
   const arr = prev.arr || state.wheelPool
   if (!arr.length) return null
-  const pointer = -Math.PI / 2
-  const n = arr.length
-  const slice = (Math.PI * 2) / n
-  let delta = (pointer - state.wheelAngle) % (Math.PI * 2)
-  if (delta < 0) delta += Math.PI * 2
-  let idx = Math.floor(delta / slice)
-  if (idx >= n) idx = n - 1
-  const item = arr[idx]
+  const item = resultFromAngle(arr, state.wheelAngle)
   state.lastResultId = item.id
   markFood(item.id, 'eaten')
   addHistory(item)
@@ -271,4 +464,53 @@ export const activeMarks = computed(() => {
 })
 
 export { allFoods, visibleFoods, isMarked, remainText }
+export function setPurpose(arr) {
+  state.selPurpose = arr.slice()
+  save(LS.purpose, state.selPurpose)
+  resetDishPool()
+}
+
+export function setCuisine(arr) {
+  state.selCuisine = arr.slice()
+  save(LS.cuisine, state.selCuisine)
+  resetDishPool()
+}
+
+export function setStaples(arr) {
+  state.selStaples = arr.slice()
+  resetDishPool()
+}
+
+export const THEMES = [
+  { key: 'orange', label: '暖橙', accent: '#ff6b35', soft: '#ffe7dc', bg: '#FFF6EE' },
+  { key: 'green', label: '薄荷绿', accent: '#22a06b', soft: '#dcf5ea', bg: '#F1FBF5' },
+  { key: 'blue', label: '星空蓝', accent: '#2f8dd0', soft: '#e3f1fc', bg: '#F0F7FE' },
+  { key: 'pink', label: '蜜桃粉', accent: '#e85d8a', soft: '#ffe3ec', bg: '#FFF1F6' }
+]
+
+export const themeMeta = computed(() => THEMES.find(t => t.key === state.theme) || THEMES[0])
+
+export function applyTheme() {
+  const m = themeMeta.value
+  if (typeof document !== 'undefined') {
+    const d = document.documentElement
+    d.style.setProperty('--accent', m.accent)
+    d.style.setProperty('--accent-soft', m.soft)
+    d.style.setProperty('--bg', m.bg)
+  }
+}
+
+export function getTheme() { return state.theme }
+
+export function setTheme(k) {
+  if (!THEMES.some(t => t.key === k)) return
+  state.theme = k
+  save(LS.theme, state.theme)
+  applyTheme()
+}
+
+export function setTastes(arr) {
+  state.selTastes = arr.slice()
+  resetDishPool()
+}
 
