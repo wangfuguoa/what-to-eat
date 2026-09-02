@@ -614,6 +614,8 @@ function getFortune() {
 function closeWelcome() { welcomeVisible.value = false }
 function startAdventure() {
   welcomeVisible.value = false
+  const f = welcomeFood.value
+  if (f) { confirmDish(f); return }
   if (mode.value === 'wheel') toggleWheel()
   else if (mode.value === 'draw') toggleDraw()
   else if (mode.value === 'dice') toggleDice()
@@ -855,7 +857,6 @@ watch(recommendResult, (val) => {
 .vip-perk-t { font-size: 14px; font-weight: 700; color: #2d2a26; display: block; }
 .vip-perk-d { font-size: 12px; color: #9a8f83; display: block; margin-top: 2px; }
 </style>
-
 
 
 
