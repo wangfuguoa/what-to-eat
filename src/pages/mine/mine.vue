@@ -43,31 +43,45 @@
     <view class="card">
       <text class="card-title">个性化</text>
       <view class="opt-row" @tap="setS('showWelcomePopup', !state.settings.showWelcomePopup)">
-        <view class="opt-info"><text class="opt-t">打开欢迎弹窗</text><text class="opt-d">进入首页自动推荐一道菜</text></view>
+        <view class="opt-info"><text class="opt-t">首页欢迎弹窗</text><text class="opt-d">进入首页自动推荐一道菜</text></view>
         <view class="switch" :class="{ on: state.settings.showWelcomePopup }"><view class="knob"></view></view>
-      </view>
-      <view class="opt-row" @tap="setS('showFortune', !state.settings.showFortune)">
-        <view class="opt-info"><text class="opt-t">今日运势</text><text class="opt-d">在弹窗显示当日运势</text></view>
-        <view class="switch" :class="{ on: state.settings.showFortune }"><view class="knob"></view></view>
       </view>
       <view class="opt-row" @tap="setS('showCalories', !state.settings.showCalories)">
         <view class="opt-info"><text class="opt-t">显示卡路里</text><text class="opt-d">菜谱与记录展示热量</text></view>
         <view class="switch" :class="{ on: state.settings.showCalories }"><view class="knob"></view></view>
       </view>
-      <view class="opt-row" @tap="togglePermanentClose">
-        <view class="opt-info"><text class="opt-t">永久关闭弹窗</text><text class="opt-d">不再自动弹出推荐</text></view>
-        <view class="switch" :class="{ on: state.settings.welcomePopupClosed }"><view class="knob"></view></view>
+
+      <view class="opt-group-title">弹窗显示内容</view>
+      <view class="guide"><text>控制首页欢迎弹窗展示哪些信息模块，VIP 可解锁更多。</text></view>
+      <view class="opt-row" @tap="toggleChip('fortune')">
+        <view class="opt-info"><text class="opt-t">今日运势</text><text class="opt-d">弹窗展示当日运势</text></view>
+        <view class="switch" :class="{ on: state.settings.popupChips.fortune }"><view class="knob"></view></view>
       </view>
-      <view class="opt-row vip" @tap="toggleVipPopup">
-        <view class="opt-info"><text class="opt-t">{{ isVip() ? '弹窗附加信息' : '弹窗附加信息 🔒' }}</text><text class="opt-d">{{ isVip() ? 'VIP 解锁，展示更多推荐信息' : '开通 VIP 后可解锁' }}</text></view>
-        <view class="switch" :class="{ on: state.settings.vipPopupExtra, locked: !isVip() }"><view class="knob"></view></view>
+      <view class="opt-row" @tap="toggleChip('pairing')">
+        <view class="opt-info"><text class="opt-t">{{ isVip() ? '饮品甜点搭配' : '饮品甜点搭配 🔒' }}</text><text class="opt-d">推荐配什么饮品/甜点</text></view>
+        <view class="switch" :class="{ on: state.settings.popupChips.pairing, locked: !isVip() }"><view class="knob"></view></view>
+      </view>
+      <view class="opt-row" @tap="toggleChip('tips')">
+        <view class="opt-info"><text class="opt-t">{{ isVip() ? '健康小贴士' : '健康小贴士 🔒' }}</text><text class="opt-d">弹窗展示保健小建议</text></view>
+        <view class="switch" :class="{ on: state.settings.popupChips.tips, locked: !isVip() }"><view class="knob"></view></view>
+      </view>
+
+      <view class="opt-group-title">主页玩法</view>
+      <view class="guide"><text>首页最多显示三种玩法，开通 VIP 可用掷骰/扭蛋替换其中之一。</text></view>
+      <view v-for="(k, idx) in state.settings.homeModes" :key="'hm'+idx" class="opt-row" @tap="onReplaceMode(k)">
+        <view class="opt-info"><text class="opt-t">{{ modeLabel(k) }}<text v-if="isModeVip(k)" class="vip-tag">VIP</text></text><text class="opt-d">点击可替换成其他玩法</text></view>
+        <text class="replace-arrow">{{ isModeVip(k) && !isVip() ? '🔒' : '⇄' }}</text>
+      </view>
+      <view class="slot-title">可选玩法</view>
+      <view class="mode-choice">
+        <view v-for="m in RECOMMEND_MODES" :key="m.key" class="mode-choice-item" :class="{ active: state.settings.homeModes.includes(m.key), locked: m.vipOnly && !isVip() }" @tap="onReplaceWith(m.key)">{{ m.icon }} {{ m.label }}{{ m.vipOnly && !isVip() ? ' 🔒' : '' }}</view>
       </view>
     </view>
 
     <view class="card">
       <text class="card-title">标记记忆</text>
       <view class="field-row">
-        <input class="picker-input" type="digit" v-model="settingsForm.memoryValueStr" placeholder="3" />
+        <input class="picker-input" type="number" v-model="settingsForm.memoryValueStr" placeholder="3" />
         <picker mode="selector" :range="units" @change="onUnitChange">
           <view class="picker">{{ settingsForm.memoryUnit }}</view>
         </picker>
@@ -114,7 +128,7 @@
 </template>
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { state, THEMES, setTheme, isVip, clearHistory, saveSettings } from '@/store/food'
+import { state, THEMES, setTheme, isVip, clearHistory, saveSettings, RECOMMEND_MODES, isModeVip, replaceHomeMode, setPopupChip, VIP_POPUP_CHIPS } from '@/store/food'
 import { saveToCloud, refreshVip } from '@/utils/sync'
 import { callApi } from '@/utils/cloudbase'
 
@@ -160,10 +174,40 @@ function setS(k, v) {
   saveSettings(s2)
   saveToCloud()
 }
-function togglePermanentClose() { setS('welcomePopupClosed', !state.settings.welcomePopupClosed) }
-function toggleVipPopup() {
-  if (!isVip()) { toast('开通 VIP 即可解锁此功能'); return }
-  setS('vipPopupExtra', !state.settings.vipPopupExtra)
+function modeLabel(k) {
+  const m = RECOMMEND_MODES.find(x => x.key === k)
+  return m ? (m.icon + ' ' + m.label) : k
+}
+function toggleChip(key) {
+  if (VIP_POPUP_CHIPS.includes(key) && !isVip()) { toast('开通 VIP 即可解锁此功能'); return }
+  setPopupChip(key, !state.settings.popupChips[key])
+  saveToCloud()
+}
+function onReplaceMode(k) {
+  if (isModeVip(k) && !isVip()) { toast('开通 VIP 即可解锁此玩法'); return }
+  const options = RECOMMEND_MODES.filter(m => m.key !== k)
+  uni.showActionSheet({
+    itemList: options.map(m => (m.icon + ' ' + m.label) + (m.vipOnly ? '（VIP）' : '') + (state.settings.homeModes.includes(m.key) ? '·已用' : '')),
+    success: (res) => {
+      const chosen = options[res.tapIndex]
+      if (!chosen) return
+      if (chosen.vipOnly && !isVip()) { toast('开通 VIP 即可解锁此玩法'); return }
+      if (state.settings.homeModes.includes(chosen.key)) { toast('它已在主页玩法中'); return }
+      replaceHomeMode(k, chosen.key); saveToCloud(); toast('主页玩法已更新')
+    }
+  })
+}
+function onReplaceWith(newKey) {
+  if (isModeVip(newKey) && !isVip()) { toast('开通 VIP 即可解锁此玩法'); return }
+  if (state.settings.homeModes.includes(newKey)) { toast('它已在主页玩法中'); return }
+  const slots = state.settings.homeModes
+  uni.showActionSheet({
+    itemList: slots.map((k, i) => '替换「' + modeLabel(k) + '」'),
+    success: (res) => {
+      const old = slots[res.tapIndex]
+      if (old) { replaceHomeMode(old, newKey); saveToCloud(); toast('主页玩法已更新') }
+    }
+  })
 }
 function confirmClearHistory() {
   uni.showModal({
@@ -217,6 +261,8 @@ onMounted(() => {
 .nickname { font-size: 18px; font-weight: 800; color: #2d2a26; display: block; }
 .profile-sub { font-size: 12px; color: #9a8f83; display: block; margin-top: 4px; }
 .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.section-head .btn { margin: 0; }
+.guide { font-size: 12px; color: #9a8f83; margin: -2px 0 10px; }
 .card-title.inline { margin-bottom: 0; }
 .vip-status { border: 1px solid #f0d6a0; background: #fff8e8; border-radius: 14px; padding: 14px; margin-bottom: 4px; }
 .vip-status.on { border-color: #ffcf00; background: #fffbe6; }
@@ -253,11 +299,19 @@ onMounted(() => {
 .vip-input { font-size: 16px; min-height: 44px; padding: 12px; box-sizing: border-box; }
 .toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: rgba(0,0,0,0.82); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity 0.2s; z-index: 200; pointer-events: none; max-width: 80vw; text-align: center; }
 .toast.show { opacity: 1; }
-.picker-input { border: 1px solid #e6d8c8; border-radius: 10px; padding: 9px 11px; font-size: 14px; width: 90px; box-sizing: border-box; color: #2d2a26; background: #fff; }
+.picker-input { border: 1px solid #e6d8c8; border-radius: 12px; padding: 12px 14px; font-size: 16px; width: 100px; height: 46px; box-sizing: border-box; color: #2d2a26; background: #fff; box-shadow: 0 2px 8px rgba(160,120,70,0.06); }
 .opt-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f4ece3; }
 .opt-info { flex: 1; padding-right: 10px; }
 .opt-t { font-size: 14px; font-weight: 600; color: #2d2a26; display: block; }
 .opt-d { font-size: 12px; color: #9a8f83; display: block; margin-top: 2px; }
+.opt-group-title { font-size: 15px; font-weight: 800; color: #2d2a26; margin-top: 16px; padding-top: 14px; border-top: 1px solid #f4ece3; }
+.vip-tag { font-size: 10px; color: #fff; background: linear-gradient(150deg,#ffd766,#ffb300); border-radius: 999px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
+.replace-arrow { font-size: 18px; color: var(--accent); }
+.slot-title { font-size: 12px; color: #9a8f83; font-weight: 600; margin-top: 8px; }
+.mode-choice { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.mode-choice-item { font-size: 13px; padding: 7px 12px; border-radius: 999px; background: #f4ece3; color: #6b5d4e; border: 1px solid transparent; }
+.mode-choice-item.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); font-weight: 700; }
+.mode-choice-item.locked { opacity: 0.55; }
 .switch { width: 46px; height: 26px; border-radius: 999px; background: #ddd; position: relative; transition: background .2s; flex-shrink: 0; }
 .switch .knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
 .switch.on { background: var(--accent); }

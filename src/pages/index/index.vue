@@ -17,7 +17,7 @@
       <view class="hero-top">
         <text class="hero-title">今日推荐</text>
         <view class="mode-tabs">
-          <view v-for="m in RECOMMEND_MODES" :key="m.key" class="mode-tab" :class="{ active: mode === m.key, locked: m.vipOnly && !isVip() }" @tap="switchMode(m.key)">{{ m.icon }} {{ m.label }}{{ m.vipOnly && !isVip() ? ' 🔒' : '' }}</view>
+          <view v-for="k in homeModes" :key="k" class="mode-tab" :class="{ active: mode === k, locked: isModeVip(k) && !isVip() }" @tap="switchMode(k)">{{ (modeByKey(k) || {}).icon }} {{ (modeByKey(k) || {}).label }}{{ isModeVip(k) && !isVip() ? ' 🔒' : '' }}</view>
         </view>
       </view>
 
@@ -85,7 +85,7 @@
         <text v-if="recommendResult.note" class="note">{{ recommendResult.note }}</text>
         <view class="action-row">
           <button class="btn primary big" @tap="chooseIt">🍚 就它了</button>
-          <button class="btn ghost big" @tap="addAndRespin">➕ 加菜</button>
+          <button class="btn ghost big" @tap="addAndRespin">➕ 再转加菜</button>
           <button class="btn ghost big" @tap="recomposeAction">🔀 转盘重组</button>
         </view>
       </view>
@@ -257,7 +257,18 @@
           <text v-for="t in (welcomeFood.tastes || [])" :key="'wt'+t" class="tag alt">{{ t }}</text>
           <text v-if="welcomeFood" class="tag cat">{{ welcomeFood.category }}</text>
         </view>
-        <text v-if="state.settings.showFortune" class="fortune">🔮 今日运势：{{ fortuneText }}</text>
+        <view v-if="state.settings.popupChips.fortune" class="popup-chip">
+          <text class="popup-chip-ic">🔮</text>
+          <view class="popup-chip-body"><text class="popup-chip-t">今日运势</text><text class="popup-chip-d">{{ fortuneText }}</text></view>
+        </view>
+        <view v-if="state.settings.popupChips.pairing && welcomeFood" class="popup-chip">
+          <text class="popup-chip-ic">🍹</text>
+          <view class="popup-chip-body"><text class="popup-chip-t">搭配建议</text><text class="popup-chip-d">{{ pairingText }}</text></view>
+        </view>
+        <view v-if="state.settings.popupChips.tips" class="popup-chip">
+          <text class="popup-chip-ic">💚</text>
+          <view class="popup-chip-body"><text class="popup-chip-t">健康小贴士</text><text class="popup-chip-d">{{ healthTipText }}</text></view>
+        </view>
         <text v-if="state.settings.showCalories && welcomeFood && welcomeFood.calories" class="fortune-sub">{{ welcomeFood.calories }} kcal · {{ welcomeFood.nutrition }}</text>
         <view class="welcome-actions">
           <button class="btn primary big" @tap="startAdventure">🎡 就它了</button>
@@ -278,7 +289,7 @@
             <text class="vip-perk-d">{{ pp.d }}</text>
           </view>
         </view>
-        <view class="guide"><text>主题/皮肤等付费样式，请到「我的 → 个性化」购买或切换。</text></view>
+        <view class="guide"><text>更多弹窗模块与主页玩法，可到「我的 → 个性化」解锁。</text></view>
         <button class="btn primary" @tap="goMine">去「我的 · 个性化」</button>
         <button class="btn ghost" @tap="openVip" v-if="!isVip()">兑换码开通</button>
       </view>
@@ -289,6 +300,7 @@
 </template>
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, getCurrentInstance, nextTick } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import {
   state, STAPLES, TASTES, HOW_OPTIONS, PURPOSE_OPTIONS,
   CUISINE_OPTIONS, RECOMMEND_MODES, WHEEL_COLORS,
@@ -327,10 +339,9 @@ const resultPop = ref(false)
 const diceFace = ref('🎯')
 
 const VIP_PERKS = [
-  { i: '🎁', t: '打开弹窗自动推荐', d: '进首页按定位+收藏随机推荐一道菜，可开关' },
-  { i: '🎮', t: '额外抽取玩法', d: '解锁掷骰子、扭蛋，可在首页替换玩法' },
-  { i: '🔮', t: '今日运势显示', d: '弹窗展示当日运势，可开关显示' },
-  { i: '🎨', t: '付费样式皮肤', d: '主题皮肤去「我的·个性化」购买/切换（单独付费）' }
+  { i: '🧩', t: '弹窗显示控制', d: '自由增删欢迎弹窗里的搭配建议、健康小贴士等模块' },
+  { i: '🎮', t: '额外抽取玩法', d: '解锁掷骰子、扭蛋，惊喜感更强' },
+  { i: '🔁', t: '主页玩法替换', d: '把首页三个玩法之一换成 VIP 专属玩法' }
 ]
 
 let toastTimer = null
@@ -341,6 +352,10 @@ const heroSpinning = computed(() => state.recommendSpinning)
 const recommendResult = computed(() => state.recommendResult)
 const dishPool = computed(() => state.dishPool)
 const dailyCalories = computed(() => todayCalories.value)
+const homeModes = computed(() => state.settings.homeModes || ['wheel', 'draw', 'flip'])
+function modeByKey(k) { return RECOMMEND_MODES.find(m => m.key === k) }
+const pairingText = ref('')
+const healthTipText = ref('')
 
 const howSuggest = computed(() => {
   const r = recipeFood.value
@@ -602,15 +617,31 @@ function clearTastes() { setTastes([]) }
 function openVipSheet() { vipSheetVisible.value = true }
 function closeVipSheet() { vipSheetVisible.value = false }
 function showWelcome() {
-  if (!state.settings.showWelcomePopup || state.settings.welcomePopupClosed) return
+  if (!state.settings.showWelcomePopup) return
   welcomeFood.value = pickRecommend(state.dishPool) || null
   fortuneText.value = getFortune()
+  pairingText.value = getPairing(welcomeFood.value)
+  healthTipText.value = getHealthTip()
   setTimeout(() => { welcomeVisible.value = true }, 300)
 }
 function getFortune() {
   const list = ['好运连连，今天想吃啥都香！','宜吃清淡，肠胃更舒服。','适合吃点辣，开胃又解腻。','多吃蛋白质，元气一整天。','今天适合尝鲜，来道新口味。','注意饮食均衡，别贪凉。']
   return list[Math.floor(Math.random() * list.length)]
 }
+const PAIRING_MAP = {
+  '肉菜': '配一杯柠檬水或冰红茶，清爽解腻',
+  '素菜': '配一杯豆浆或绿茶，清淡爽口',
+  '主食': '配一小份凉拌菜或酸梅汤，开胃又顶饱',
+  '汤羹': '配两个小笼包或烧饼，暖胃更管饱',
+  '小吃': '配一杯柠檬茶，解馋不腻',
+  '甜品': '配一杯温水或热茶，中和甜味更舒服'
+}
+function getPairing(f) {
+  if (!f) return '配一杯温水，慢慢吃更舒服'
+  return PAIRING_MAP[f.category] || '配一杯温水或清茶，慢慢吃更舒服'
+}
+const HEALTH_TIPS = ['少油少盐更健康，每天盐别超5g。','饭前一小碗汤，能帮你少吃半碗饭。','每口咀嚼20次，给大脑时间喊停。','饭后别立即午睡，散散步更助消化。','多喝温水少喝冰饮，肠胃更舒服。','睡前2小时别吃太饱，睡眠更安稳。']
+function getHealthTip() { return HEALTH_TIPS[Math.floor(Math.random() * HEALTH_TIPS.length)] }
 function closeWelcome() { welcomeVisible.value = false }
 function startAdventure() {
   welcomeVisible.value = false
@@ -699,6 +730,16 @@ watch(dishPool, () => {
   else if (mode.value === 'flip') generateFlips()
 })
 watch(mode, (m) => { if (m === 'wheel') nextTick(drawWheel) })
+watch(() => state.settings.homeModes, (modes) => {
+  const list = modes && modes.length ? modes : ['wheel', 'draw', 'flip']
+  if (!list.includes(mode.value)) {
+    setRecommendMode(list[0])
+    state.recommendResult = null
+    resultConfirmed.value = false
+    flipRevealed.value = null
+    if (list[0] === 'wheel') nextTick(drawWheel)
+  }
+})
 watch(recommendResult, (val) => {
   if (val) { resultPop.value = false; nextTick(() => { resultPop.value = true }) }
 })
@@ -710,7 +751,7 @@ watch(recommendResult, (val) => {
 .logo { font-size: 32px; }
 .brand-title { font-size: 22px; font-weight: 800; color: #2d2a26; display: block; line-height: 1.1; }
 .brand-sub { font-size: 12px; color: #9a8f83; display: block; }
-.vip-pill { border: none; background: linear-gradient(150deg,#ffd766,#ffb300); color: #7a4a00; font-size: 13px; font-weight: 800; border-radius: 999px; padding: 8px 16px; line-height: 1; box-shadow: 0 4px 12px rgba(255,179,0,0.35); }
+.vip-pill { margin: 0; flex-shrink: 0; border: none; background: linear-gradient(150deg,#ffd766,#ffb300); color: #7a4a00; font-size: 13px; font-weight: 800; border-radius: 999px; padding: 8px 16px; line-height: 1; box-shadow: 0 4px 12px rgba(255,179,0,0.35); }
 .vip-pill.on { background: linear-gradient(150deg,#ffb300,#ff8a00); color: #3b2a00; box-shadow: 0 4px 16px rgba(255,138,0,0.4); }
 
 .card { background: #fff; border-radius: 18px; padding: 16px; margin-bottom: 14px; box-shadow: 0 4px 18px rgba(160, 120, 70, 0.06); }
@@ -718,9 +759,10 @@ watch(recommendResult, (val) => {
 .hero { border: 1px solid #ffe1cf; background: linear-gradient(180deg, #fff 0%, #fff6ee 100%); }
 .hero-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .hero-title { font-size: 16px; font-weight: 800; color: #2d2a26; }
-.mode-tabs { display: flex; gap: 4px; background: #f4ece3; border-radius: 999px; padding: 3px; }
-.mode-tab { font-size: 12px; color: #8a7b6c; padding: 5px 10px; border-radius: 999px; }
+.mode-tabs { display: flex; gap: 3px; background: #f4ece3; border-radius: 999px; padding: 3px; }
+.mode-tab { font-size: 12px; color: #8a7b6c; padding: 5px 11px; border-radius: 999px; white-space: nowrap; }
 .mode-tab.active { background: var(--accent); color: #fff; font-weight: 700; }
+.mode-tab.locked { opacity: 0.55; }
 
 .hero-wheel-wrap { position: relative; display: flex; justify-content: center; padding: 8px 0 6px; }
 .hero-wheel { border-radius: 50%; box-shadow: 0 6px 20px rgba(255, 107, 53, 0.18); }
@@ -764,7 +806,7 @@ watch(recommendResult, (val) => {
 .tag.alt { background: var(--accent-soft); color: var(--accent); }
 .tag.cat { background: #e8f4ff; color: #2f8dd0; }
 .note { font-size: 13px; color: #9a8f83; text-align: center; display: block; margin: 8px 0; }
-.action-row { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+.action-row { display: flex; gap: 10px; justify-content: center; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0e2d3; }
 
 .pool-limit { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 14px; padding: 6px 4px 0; }
 .pool-limit-label { font-size: 12px; color: #9a8f83; }
@@ -797,7 +839,7 @@ watch(recommendResult, (val) => {
 .btn.primary { background: linear-gradient(150deg, #ff8a50, var(--accent)); color: #fff; box-shadow: 0 4px 12px rgba(255,107,53,0.3); }
 .btn.ghost { background: #fff; border: 1px solid #e6d8c8; color: #6b5d4e; }
 .btn.small { font-size: 12px; padding: 6px 10px; }
-.btn.big { padding: 10px 14px; font-size: 13px; }
+.btn.big { padding: 12px 14px; font-size: 15px; min-height: 46px; }
 .btn.danger { color: #e74c3c; border-color: #f3c0bb; }
 
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
@@ -844,6 +886,11 @@ watch(recommendResult, (val) => {
 .daily-num { font-size: 18px; font-weight: 800; color: var(--accent); }
 
 .fortune { display: block; text-align: center; margin: 10px 0 2px; background: #fff3d6; color: #b8860b; border-radius: 12px; padding: 10px; font-size: 14px; font-weight: 600; }
+.popup-chip { display: flex; align-items: flex-start; gap: 10px; text-align: left; background: #fff6ee; border: 1px solid #ffe1cf; border-radius: 12px; padding: 9px 10px; margin-top: 8px; }
+.popup-chip-ic { font-size: 20px; line-height: 1.2; }
+.popup-chip-body { flex: 1; }
+.popup-chip-t { font-size: 12px; font-weight: 800; color: var(--accent); display: block; }
+.popup-chip-d { font-size: 13px; color: #5b4d3f; line-height: 1.5; display: block; margin-top: 2px; }
 .fortune-sub { display: block; text-align: center; font-size: 12px; color: #9a8f83; margin-bottom: 6px; }
 .welcome-modal { text-align: center; }
 .welcome-badge { font-size: 16px; font-weight: 800; color: var(--accent); display: block; }
@@ -857,6 +904,3 @@ watch(recommendResult, (val) => {
 .vip-perk-t { font-size: 14px; font-weight: 700; color: #2d2a26; display: block; }
 .vip-perk-d { font-size: 12px; color: #9a8f83; display: block; margin-top: 2px; }
 </style>
-
-
-

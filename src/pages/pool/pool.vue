@@ -285,7 +285,7 @@ onShow(() => {
 .logo { font-size: 30px; }
 .brand-title { font-size: 21px; font-weight: 800; color: #2d2a26; display: block; line-height: 1.1; }
 .brand-sub { font-size: 12px; color: #9a8f83; display: block; }
-.tool-btn { border: 1px solid #ddd; background: #fff; padding: 8px 12px; border-radius: 10px; font-size: 13px; color: #333; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+.tool-btn { margin: 0; border: 1px solid #ddd; background: #fff; padding: 8px 12px; border-radius: 10px; font-size: 13px; color: #333; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
 .sub-tabs { display: flex; gap: 5px; background: #f4ece3; border-radius: 999px; padding: 4px; margin-bottom: 14px; }
 .sub-tab { flex: 1; text-align: center; font-size: 12px; color: #8a7b6c; padding: 8px 0; border-radius: 999px; }
 .sub-tab.active { background: var(--accent); color: #fff; font-weight: 700; }

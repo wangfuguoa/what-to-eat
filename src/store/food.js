@@ -57,7 +57,7 @@ export const state = reactive({
   favorites: [],
   history: [],
   vip: null,
-  settings: { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showFortune: true, welcomePopupClosed: false, showCalories: true, vipPopupExtra: false },
+  settings: { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showCalories: true, popupChips: { fortune: true, pairing: false, tips: false }, homeModes: ['wheel', 'draw', 'flip'] },
   dailyRecords: [],
   howToEat: '自己做',
   selPurpose: [],
@@ -189,7 +189,12 @@ export function initStore() {
   state.hidden = load(LS.hidden, [])
   state.marks = load(LS.marks, {})
   const s = load(LS.settings, {})
-  state.settings = Object.assign({ memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showFortune: true, welcomePopupClosed: false, showCalories: true, vipPopupExtra: false }, s)
+  const defaults = { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showCalories: true, popupChips: { fortune: true, pairing: false, tips: false }, homeModes: ['wheel', 'draw', 'flip'] }
+  state.settings = Object.assign({}, defaults, s)
+  state.settings.popupChips = Object.assign({}, defaults.popupChips, s.popupChips || {})
+  if (typeof s.showFortune === 'boolean') state.settings.popupChips.fortune = s.showFortune
+  if (s.welcomePopupClosed === true) state.settings.showWelcomePopup = false
+  state.settings.homeModes = validHomeModes(state.settings.homeModes)
   state.dailyRecords = load(LS.daily, [])
   state.favorites = load(LS.favorites, [])
   state.history = load(LS.history, [])
@@ -395,6 +400,30 @@ export function saveSettings(settings) {
   state.settings = Object.assign({}, state.settings, settings)
   save(LS.settings, state.settings)
   purgeExpired()
+}
+
+const HOME_BASE = ['wheel', 'draw', 'flip']
+export const VIP_POPUP_CHIPS = ['pairing', 'tips']
+export function validHomeModes(list) {
+  const keys = RECOMMEND_MODES.map(m => m.key)
+  const out = []
+  for (const k of (list || [])) if (keys.includes(k) && !out.includes(k)) out.push(k)
+  for (const k of HOME_BASE) if (!out.includes(k)) out.push(k)
+  while (out.length < 3) out.push(HOME_BASE[out.length % HOME_BASE.length])
+  return out.slice(0, 3)
+}
+export function replaceHomeMode(oldKey, newKey) {
+  if (oldKey === newKey) return
+  const arr = state.settings.homeModes.slice()
+  const i = arr.indexOf(oldKey)
+  if (i < 0) return
+  arr[i] = newKey
+  state.settings.homeModes = validHomeModes(arr)
+  saveSettings({})
+}
+export function setPopupChip(key, val) {
+  state.settings.popupChips = Object.assign({}, state.settings.popupChips, { [key]: !!val })
+  saveSettings({})
 }
 
 export function slug(s) {
