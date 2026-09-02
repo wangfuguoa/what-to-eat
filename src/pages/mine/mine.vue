@@ -10,25 +10,52 @@
       </view>
     </view>
 
-      <view class="card profile-card">
-        <view class="avatar">😊</view>
+      <view class="card profile-card profile-hero">
+        <view class="profile-avatar"><text class="profile-avatar-text">{{ state.settings.avatar || '😊' }}</text></view>
         <view class="profile-info">
-          <text class="nickname">{{ state.account.loggedIn ? state.account.username : '未登录' }}</text>
-          <text class="profile-sub">{{ state.account.loggedIn ? '已登录 · 数据随账号云同步' : '登录后可同步个性化与 VIP' }}</text>
+          <text class="nickname">{{ state.settings.nickname || (state.account.loggedIn ? state.account.username : '未设置昵称') }}</text>
+          <text class="profile-sub">{{ state.settings.city ? '常住 · ' + state.settings.city : (state.account.loggedIn ? '已登录 · 数据云端同步' : '登录后可同步数据') }}</text>
         </view>
-        <button v-if="state.account.loggedIn" class="btn small ghost" @tap="onLogout">退出</button>
-        <button v-else class="btn small primary" @tap="openAccount">登录/注册</button>
+        <view class="profile-actions">
+          <button class="btn small ghost" @tap="openProfile">编辑</button>
+          <button class="btn small primary" v-if="!state.account.loggedIn" @tap="openAccount">登录</button>
+          <button class="btn small ghost" v-else @tap="onLogout">退出</button>
+        </view>
       </view>
 
     <view class="card">
       <view class="section-head">
-        <text class="card-title">💎 VIP 会员</text>
-        <button class="btn small ghost" @tap="openVip">兑换码</button>
+        <text class="card-title">👑 会员 · 权益中心</text>
+        <button class="btn small primary" @tap="openVip">{{ isVip() ? '续费' : '开通' }}</button>
       </view>
       <view class="vip-status" :class="{ on: isVip() }">
-        <text class="vip-badge">{{ isVip() ? '已开通' : '未开通' }}</text>
+        <text class="vip-badge">{{ isVip() ? '已开通会员' : '未开通会员' }}</text>
         <text v-if="isVip()" class="vip-expire">{{ vipExpireText }}</text>
-        <text v-else class="muted">兑换码开通，解锁更多高级玩法</text>
+        <text v-else class="muted">兑换码 / 邀请好友即可开通</text>
+      </view>
+      <view class="vip-perk-grid">
+        <view v-for="p in VIP_PERKS" :key="p.t" class="vip-perk-cell">
+          <text class="vip-perk-ic">{{ p.i }}</text>
+          <text class="vip-perk-t">{{ p.t }}</text>
+          <text class="vip-perk-state">{{ isVip() ? '✓' : '🔒' }}</text>
+        </view>
+      </view>
+      <view v-if="!isVip()" class="vip-cta">
+        <view class="vip-cta-info">
+          <text class="vip-cta-t">开通即享</text>
+          <text class="vip-cta-d">高级玩法 · 皮肤 · 弹窗显示控制</text>
+        </view>
+        <button class="btn primary" @tap="openVip">立即开通 →</button>
+      </view>
+    </view>
+
+    <view class="card">
+      <text class="card-title">📊 数据总览</text>
+      <view class="stat-grid">
+        <view class="stat-cell"><text class="stat-num">{{ todayCount }}</text><text class="stat-lb">今日已选</text></view>
+        <view class="stat-cell"><text class="stat-num">{{ todayCalories }}</text><text class="stat-lb">今日卡路里</text></view>
+        <view class="stat-cell"><text class="stat-num">{{ streakDays }}</text><text class="stat-lb">连续打卡</text></view>
+        <view class="stat-cell"><text class="stat-num">{{ state.favorites.length }}</text><text class="stat-lb">累计收藏</text></view>
       </view>
     </view>
 
@@ -77,10 +104,14 @@
         <view class="switch" :class="{ on: state.settings.popupChips.tips, locked: !isVip() }"><view class="knob"></view></view>
       </view>
 
-      <view class="opt-group-title">卡路里</view>
+      <view class="opt-group-title">菜谱显示</view>
       <view class="opt-row" @tap="setS('showCalories', !state.settings.showCalories)">
         <view class="opt-info"><text class="opt-t">显示卡路里</text><text class="opt-d">菜谱与记录展示热量</text></view>
         <view class="switch" :class="{ on: state.settings.showCalories }"><view class="knob"></view></view>
+      </view>
+      <view class="opt-row" @tap="setS('showNutrition', !state.settings.showNutrition)">
+        <view class="opt-info"><text class="opt-t">显示营养</text><text class="opt-d">展示蛋白质、脂肪、碳水等</text></view>
+        <view class="switch" :class="{ on: state.settings.showNutrition }"><view class="knob"></view></view>
       </view>
 
       <view class="opt-group-title">主页玩法</view>
@@ -106,23 +137,68 @@
     </view>
 
     <view class="card group">
-      <view class="group-head" @tap="toggleGroup('data')">
-        <text class="group-title">🍽️ 数据记录</text>
-        <text class="group-arrow">{{ openGroup === 'data' ? '▴' : '▾' }}</text>
+      <view class="group-head" @tap="toggleGroup('diet')">
+        <text class="group-title">🍽️ 饮食偏好</text>
+        <text class="group-arrow">{{ openGroup === 'diet' ? '▴' : '▾' }}</text>
       </view>
-      <view v-if="openGroup === 'data'" class="group-body">
-      <view class="section-head">
-        <text class="card-title">🍽️ 吃过记录</text>
-        <button class="btn small ghost" @tap="confirmClearEaten">清空计数</button>
-      </view>
-      <view v-if="!eatenList.length" class="empty">还没有吃过记录，点「就它了」或抽中就会累计</view>
-      <view v-for="e in eatenList" :key="'ec' + e.id" class="mark-row">
-        <view class="mark-dot"></view>
-        <view class="mark-info">
-          <text class="mark-name">{{ e.name }}</text>
-          <text class="mark-small">共吃过 {{ e.count }} 次</text>
+      <view v-if="openGroup === 'diet'" class="group-body">
+        <view class="opt-group-title">忌口</view>
+        <view class="guide"><text>选中的会自动从首页随机池避开。</text></view>
+        <view class="mode-choice">
+          <view v-for="a in DIET_AVOID" :key="a" class="mode-choice-item" :class="{ active: state.settings.dietAvoid.includes(a) }" @tap="toggleAvoid(a)">{{ a }}</view>
+        </view>
+        <view class="opt-group-title">口味偏好</view>
+        <view class="guide"><text>推荐的菜会更偏向你喜欢的口味。</text></view>
+        <view class="mode-choice">
+          <view v-for="t in TASTE_PREFS" :key="t" class="mode-choice-item" :class="{ active: state.settings.tastePref.includes(t) }" @tap="toggleTastePref(t)">{{ t }}</view>
+        </view>
+        <view class="opt-group-title">饮食目标</view>
+        <view class="guide"><text>自动联动首页「吃饭目的」筛选。</text></view>
+        <view class="mode-choice">
+          <view v-for="g in DIET_GOALS" :key="g" class="mode-choice-item" :class="{ active: state.settings.dietGoal === g }" @tap="pickGoal(g)">{{ g }}</view>
         </view>
       </view>
+    </view>
+
+    <view class="card group">
+      <view class="group-head" @tap="toggleGroup('memory')">
+        <text class="group-title">⏳ 记忆与周期</text>
+        <text class="group-arrow">{{ openGroup === 'memory' ? '▴' : '▾' }}</text>
+      </view>
+      <view v-if="openGroup === 'memory'" class="group-body">
+        <view class="field-row">
+          <input class="picker-input" type="number" v-model="memValueStr" placeholder="3" />
+          <picker mode="selector" :range="memUnits" @change="onMemUnit">
+            <view class="picker">{{ memUnit }}</view>
+          </picker>
+        </view>
+        <text class="hint">「最近吃过」与「不想吃」的保存周期，到期自动解除。</text>
+        <button class="btn primary" @tap="saveMem">保存周期</button>
+      </view>
+    </view>
+
+    <view class="card group">
+      <view class="group-head" @tap="toggleGroup('setting')">
+        <text class="group-title">⚙️ 设置与关于</text>
+        <text class="group-arrow">{{ openGroup === 'setting' ? '▴' : '▾' }}</text>
+      </view>
+      <view v-if="openGroup === 'setting'" class="group-body">
+        <view class="opt-row" @tap="toggleNotify">
+          <view class="opt-info"><text class="opt-t">每日推荐提醒</text><text class="opt-d">每日固定时间提醒点菜（后期）</text></view>
+          <view class="switch" :class="{ on: state.settings.notify }"><view class="knob"></view></view>
+        </view>
+        <view class="opt-row" @tap="confirmReset">
+          <view class="opt-info"><text class="opt-t">清除本地数据</text><text class="opt-d">重置收藏、历史、标记、设置</text></view>
+          <text class="replace-arrow">↺</text>
+        </view>
+        <view class="opt-row" @tap="showAbout">
+          <view class="opt-info"><text class="opt-t">关于我们</text><text class="opt-d">版本 1.0.0 · 用户协议 · 隐私政策</text></view>
+          <text class="replace-arrow">›</text>
+        </view>
+        <view class="opt-row" @tap="openFeedback">
+          <view class="opt-info"><text class="opt-t">帮助与反馈</text><text class="opt-d">问题反馈 / 意见 / 加群</text></view>
+          <text class="replace-arrow">›</text>
+        </view>
       </view>
     </view>
 
@@ -141,6 +217,32 @@
           <input class="input vip-input" v-model="vipCode" maxlength="32" confirm-type="done" @confirm="redeem" :focus="vipFocus" placeholder="请输入兑换码，如 VIP2026" />
         </view>
         <button class="btn primary" @tap="redeem" :disabled="vipBusy">{{ vipBusy ? '兑换中…' : '立即兑换' }}</button>
+        </view>
+      </view>
+
+      <view v-if="profileVisible" class="overlay" @tap.self="closeProfile">
+        <view class="modal" @tap.stop>
+          <button class="modal-close" @tap="closeProfile">×</button>
+          <text class="modal-title">✏️ 编辑资料</text>
+          <view class="field">
+            <text class="field-label">昵称</text>
+            <input class="input" v-model="nicknameInput" maxlength="12" placeholder="2-12字昵称" />
+          </view>
+          <view class="field">
+            <text class="field-label">头像</text>
+            <view class="avatar-choice">
+              <view v-for="a in avatars" :key="a" class="avatar-opt" :class="{ active: avatarInput === a }" @tap="avatarInput = a">{{ a }}</view>
+            </view>
+          </view>
+          <view class="field">
+            <text class="field-label">常住城市</text>
+            <input class="input" v-model="cityInput" maxlength="20" placeholder="如：上海" />
+          </view>
+          <view class="bind-row">
+            <button class="btn small ghost" @tap="toast('小程序可微信一键登录（后期接后端）')">绑定微信</button>
+            <button class="btn small ghost" @tap="toast('手机号绑定功能即将上线')">绑定手机</button>
+          </view>
+          <button class="btn primary" @tap="saveProfile">保存</button>
         </view>
       </view>
 
@@ -174,12 +276,20 @@
 </template>
 <script setup>
   import { ref, computed } from 'vue'
-  import { state, THEMES, setTheme, isVip, clearEatenCounts, saveSettings, allFoods, RECOMMEND_MODES, isModeVip, replaceHomeMode, setPopupChip, VIP_POPUP_CHIPS, MODE_SKINS, getModeSkin, setModeSkin } from '@/store/food'
+  import { state, THEMES, setTheme, isVip, saveSettings, todayCalories, resetAllData, setProfile, DIET_AVOID, TASTE_PREFS, DIET_GOALS, setDietAvoid, setTastePref, setDietGoal, RECOMMEND_MODES, isModeVip, replaceHomeMode, setPopupChip, VIP_POPUP_CHIPS, MODE_SKINS, getModeSkin, setModeSkin } from '@/store/food'
   import { saveToCloud, refreshVip, loginAccount, registerAccount, logoutAccount } from '@/utils/sync'
   import { callApi } from '@/utils/cloudbase'
 
 const openGroup = ref('')
 function toggleGroup(k) { openGroup.value = openGroup.value === k ? '' : k }
+const profileVisible = ref(false)
+const nicknameInput = ref('')
+const avatarInput = ref('😊')
+const cityInput = ref('')
+const avatars = ['😊', '😄', '😋', '🥰', '😎', '🤗', '🐱', '🐶', '🐰', '🦊']
+const memValueStr = ref('3')
+const memUnit = ref('天')
+const memUnits = ['天', '周', '月']
 const vipVisible = ref(false)
 const vipCode = ref('')
 const vipBusy = ref(false)
@@ -203,15 +313,26 @@ const vipExpireText = computed(() => {
   return '到期 ' + d.getFullYear() + '-' + mm + '-' + dd
 })
 
-const eatenList = computed(() => {
-  const map = {}
-  for (const f of allFoods()) map[f.id] = f
-  return Object.keys(state.eatenCounts)
-    .map(id => ({ id, name: (map[id] && map[id].name) || id, count: state.eatenCounts[id] || 0 }))
-    .filter(e => e.count > 0)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 50)
+const todayCount = computed(() => state.dailyRecords.length)
+const streakDays = computed(() => {
+  const days = new Set(state.dailyRecords.map(d => { const t = new Date(d.ts); return t.getFullYear() + '-' + t.getMonth() + '-' + t.getDate() }))
+  if (!days.size) return 0
+  let n = 0
+  const cur = new Date()
+  while (true) {
+    const key = cur.getFullYear() + '-' + cur.getMonth() + '-' + cur.getDate()
+    if (days.has(key)) { n++; cur.setDate(cur.getDate() - 1) }
+    else break
+  }
+  return n
 })
+
+const VIP_PERKS = [
+  { i: '🧩', t: '弹窗显示控制' },
+  { i: '🎮', t: '掷骰 / 扭蛋玩法' },
+  { i: '🎨', t: '主页玩法替换' },
+  { i: '🔁', t: '更多皮肤' }
+]
 
 function toast(msg) {
   toastMsg.value = msg
@@ -257,12 +378,6 @@ function pickSkin(mode, key) {
     saveToCloud()
     toast(next === 'daily' ? '改为每天显示一次' : '改为每次进入都显示')
   }
-  function confirmClearEaten() {
-    uni.showModal({
-      title: '提示', content: '确定清空「吃过记录」的计数吗？',
-      success: (res) => { if (res.confirm) { clearEatenCounts(); toast('已清空计数'); saveToCloud() } }
-    })
-  }
 function onReplaceMode(k) {
   if (isModeVip(k) && !isVip()) { toast('开通 VIP 即可解锁此玩法'); return }
   const options = RECOMMEND_MODES.filter(m => m.key !== k)
@@ -291,6 +406,62 @@ function onReplaceWith(newKey) {
 }
   function openVip() { vipVisible.value = true; vipFocus.value = true }
   function closeVip() { vipVisible.value = false; vipFocus.value = false }
+  function openProfile() {
+    profileVisible.value = true
+    nicknameInput.value = state.settings.nickname || ''
+    avatarInput.value = state.settings.avatar || '😊'
+    cityInput.value = state.settings.city || ''
+  }
+  function closeProfile() { profileVisible.value = false }
+  function saveProfile() {
+    setProfile({ nickname: nicknameInput.value, avatar: avatarInput.value, city: cityInput.value })
+    saveToCloud()
+    closeProfile()
+    toast('资料已保存')
+  }
+  function toggleAvoid(a) {
+    const arr = state.settings.dietAvoid.slice()
+    const i = arr.indexOf(a)
+    if (i >= 0) arr.splice(i, 1); else arr.push(a)
+    setDietAvoid(arr)
+    saveToCloud()
+  }
+  function toggleTastePref(t) {
+    const arr = state.settings.tastePref.slice()
+    const i = arr.indexOf(t)
+    if (i >= 0) arr.splice(i, 1); else arr.push(t)
+    setTastePref(arr)
+    saveToCloud()
+  }
+  function pickGoal(g) {
+    setDietGoal(state.settings.dietGoal === g ? '' : g)
+    saveToCloud()
+    toast('饮食目标已更新')
+  }
+  function toggleNotify() {
+    saveSettings({ notify: !state.settings.notify })
+    saveToCloud()
+  }
+  function confirmReset() {
+    uni.showModal({
+      title: '提示', content: '确定清除全部本地数据吗？此操作不可撤销。',
+      success: (res) => { if (res.confirm) { resetAllData(); toast('已重置'); } }
+    })
+  }
+  function showAbout() {
+    uni.showModal({ title: '关于我们', content: '「吃什么」v1.0.0\n一个帮你解决今天吃什么的随机神器。\n使用即代表同意《用户协议》与《隐私政策》。', showCancel: false })
+  }
+  function openFeedback() {
+    uni.showModal({ title: '帮助与反馈', content: '反馈/建议请发：whattoeat@example.com\n或加入用户群获取更多支持。', showCancel: false })
+  }
+  function onMemUnit(e) { memUnit.value = memUnits[Number(e.detail.value)] }
+  function saveMem() {
+    const v = Math.max(1, parseInt(memValueStr.value, 10) || 3)
+    memValueStr.value = String(v)
+    saveSettings({ memoryValue: v, memoryUnit: memUnit.value })
+    saveToCloud()
+    toast('周期记忆已保存')
+  }
   function openAccount() { accountVisible.value = true; accUsername.value = ''; accPassword.value = ''; accPassword2.value = ''; accountMode.value = 'login' }
   function closeAccount() { accountVisible.value = false }
   function toggleAccountMode() { accountMode.value = accountMode.value === 'login' ? 'register' : 'login' }
@@ -361,6 +532,10 @@ function onReplaceWith(newKey) {
 .avatar { width: 58px; height: 58px; border-radius: 50%; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; font-size: 28px; }
 .nickname { font-size: 18px; font-weight: 800; color: #2d2a26; display: block; }
 .profile-sub { font-size: 12px; color: #9a8f83; display: block; margin-top: 4px; }
+.profile-hero { background: linear-gradient(135deg, var(--accent-soft), #fff); border: 1px solid #f0e2d3; }
+.profile-avatar { width: 60px; height: 60px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(160,120,70,0.15); }
+.profile-avatar-text { font-size: 30px; }
+.profile-actions { display: flex; gap: 6px; }
 .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .section-head .btn { margin: 0; }
 .guide { font-size: 12px; color: #9a8f83; margin: -2px 0 10px; }
@@ -370,7 +545,24 @@ function onReplaceWith(newKey) {
 .vip-badge { font-size: 18px; font-weight: 800; color: #d48806; display: block; }
 .vip-expire { font-size: 13px; color: #9a8f83; display: block; margin-top: 4px; }
 .muted { font-size: 12px; color: #b0a49a; }
+.vip-perk-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.vip-perk-cell { background: #faf4ec; border-radius: 12px; padding: 10px 4px; text-align: center; }
+.vip-perk-ic { font-size: 20px; display: block; }
+.vip-perk-t { font-size: 11px; color: #6b5d4e; display: block; margin-top: 4px; line-height: 1.3; }
+.vip-perk-state { font-size: 12px; color: #1a9e5c; display: block; margin-top: 4px; font-weight: 700; }
+.vip-cta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; background: linear-gradient(120deg, #fff3d6, #ffe6b0); border: 1px solid #f0d6a0; border-radius: 14px; padding: 12px; }
+.vip-cta-t { font-size: 14px; font-weight: 800; color: #b8860b; display: block; }
+.vip-cta-d { font-size: 12px; color: #b0985a; display: block; margin-top: 2px; }
+.vip-cta .btn { flex-shrink: 0; }
 .theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.stat-cell { background: var(--accent-soft); border-radius: 12px; padding: 12px 4px; text-align: center; }
+.stat-num { font-size: 20px; font-weight: 800; color: var(--accent); display: block; }
+.stat-lb { font-size: 11px; color: #6b5d4e; display: block; margin-top: 4px; }
+.avatar-choice { display: flex; flex-wrap: wrap; gap: 8px; }
+.avatar-opt { width: 40px; height: 40px; border-radius: 50%; background: #f4ece3; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; }
+.avatar-opt.active { background: var(--accent-soft); border: 2px solid var(--accent); }
+.bind-row { display: flex; gap: 10px; margin-bottom: 14px; }
 .theme-item { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
 .theme-swatch { width: 46px; height: 46px; border-radius: 14px; border: 2px solid #eee; }
 .theme-item.active .theme-swatch { border-color: #2d2a26; box-shadow: 0 0 0 3px var(--accent-soft); }

@@ -207,21 +207,6 @@
       </view>
     </view>
 
-    <!-- 周期记忆 -->
-    <view class="card">
-      <view class="section-head">
-        <text class="card-title">🧠 周期记忆</text>
-      </view>
-      <view class="field-row">
-        <input class="picker-input" type="number" v-model="memValueStr" placeholder="3" />
-        <picker mode="selector" :range="memUnits" @change="onMemUnit">
-          <view class="picker">{{ memUnit }}</view>
-        </picker>
-      </view>
-      <text class="hint">「最近吃过」与「不想吃」的保存周期，到期自动解除。</text>
-      <button class="btn primary" @tap="saveMem">保存周期</button>
-    </view>
-
     <!-- 最近吃过 -->
     <view class="card">
       <view class="section-head">
@@ -230,13 +215,16 @@
       </view>
       <view v-if="!recentEaten.length" class="empty">还没有记录，点「就它了」会记到这里</view>
       <view v-if="!recentEaten.length && state.history.length" class="empty">该周期内暂无记录（可调大周期）</view>
-      <view v-for="h in recentEaten" :key="'rh'+h.id+h.ts" class="mark-row">
-        <view class="mark-dot"></view>
-        <view class="mark-info">
-          <text class="mark-name">{{ h.name }}</text>
-          <text class="mark-small">{{ formatTime(h.ts) }}</text>
+      <view class="recent-list" :class="{ grow: recentExpanded }">
+        <view v-for="h in shownRecent" :key="'rh'+h.id+h.ts" class="mark-row">
+          <view class="mark-dot"></view>
+          <view class="mark-info">
+            <text class="mark-name">{{ h.name }}</text>
+            <text class="mark-small">{{ formatTime(h.ts) }}</text>
+          </view>
         </view>
       </view>
+      <button v-if="recentEaten.length > 5" class="btn small ghost expand-btn" @tap="recentExpanded = !recentExpanded">{{ recentExpanded ? '收起 ▲' : '查看更多 ▼' }}</button>
     </view>
 
     <view v-if="recipeVisible" class="overlay" @tap.self="closeRecipe">
@@ -340,7 +328,7 @@ import {
   setPoolLimit, setRecommendMode, pickRecommend, resultFromAngle,
   addToMenu, removeFromMenu, recomposeDishPool, resetDishPool, markFood,
   addHistory, isVip, findFood, addDailyRecord, clearDailyRecords,
-  removeDailyRecord, todayCalories, isModeVip, saveSettings, poolState, clearHistory
+  removeDailyRecord, todayCalories, isModeVip, poolState, clearHistory
 } from '@/store/food'
 import { saveToCloud, refreshVip } from '@/utils/sync'
 import { callApi } from '@/utils/cloudbase'
@@ -363,9 +351,7 @@ const drawing = ref(false)
 const flipCards = ref([])
 const flipRevealed = ref(null)
 const geoHint = ref('')
-const memValueStr = ref('3')
-const memUnit = ref('天')
-const memUnits = ['天', '周', '月']
+const recentExpanded = ref(false)
 const vipSheetVisible = ref(false)
 const welcomeVisible = ref(false)
 const welcomeFood = ref(null)
@@ -399,6 +385,7 @@ const recentEaten = computed(() => {
   const cutoff = Date.now() - windowMs
   return state.history.filter(h => h.ts >= cutoff)
 })
+const shownRecent = computed(() => recentExpanded.value ? recentEaten.value : recentEaten.value.slice(0, 5))
 const pairingText = ref('')
 const healthTipText = ref('')
 
@@ -750,16 +737,6 @@ function clearDaily() {
   })
 }
   function removeDaily(id) { removeDailyRecord(id); toast('已移除'); saveToCloud() }
-  function onMemUnit(e) {
-    memUnit.value = ['天', '周', '月'][Number(e.detail.value)]
-  }
-  function saveMem() {
-    const v = Math.max(1, parseInt(memValueStr.value, 10) || 3)
-    memValueStr.value = String(v)
-    saveSettings({ memoryValue: v, memoryUnit: memUnit.value })
-    toast('周期记忆已保存')
-    saveToCloud()
-  }
   function dailyMeta(d) {
   let s = ''
   if (d.nutrition) s += d.nutrition
@@ -835,8 +812,6 @@ onMounted(() => {
   if (!state.dishPool.length) resetDishPool()
   const first = pickRecommend(state.dishPool)
   state.recommendResult = first || null
-  memValueStr.value = String(state.settings.memoryValue || 3)
-  memUnit.value = state.settings.memoryUnit || '天'
   resultConfirmed.value = false
   if (mode.value === 'flip') generateFlips()
   else if (mode.value === 'wheel') nextTick(drawWheel)
@@ -961,6 +936,9 @@ watch(recommendResult, (val) => {
 .mark-info { flex: 1; }
 .mark-name { font-size: 14px; font-weight: 600; color: #2d2a26; display: block; }
 .mark-small { font-size: 12px; color: #9a8f83; display: block; }
+.recent-list { max-height: 236px; overflow: hidden; }
+.recent-list.grow { max-height: none; }
+.expand-btn { display: block; margin: 10px auto 0; text-align: center; }
 .menu-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f4ece3; }
 .menu-main { flex: 1; padding-right: 8px; }
 .food-name { font-size: 15px; font-weight: 700; color: #2d2a26; display: block; }

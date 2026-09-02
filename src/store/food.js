@@ -195,9 +195,19 @@ export const currentPool = computed(() => {
     const okTaste = state.selTastes.length === 0 || f.tastes.some(t => state.selTastes.includes(t))
     if (!okStaple || !okTaste) return false
     if (!state.settings.includeMarked && active[f.id]) return false
+    if (!dietAvoidPass(f)) return false
     return true
   })
 })
+
+const SEA_FOOD_RE = /(鱼|虾|蟹|贝|蛤|鱿|螺|蚝|鲍|龙虾|三文鱼|带鱼|鲈鱼)/
+function dietAvoidPass(f) {
+  const a = state.settings.dietAvoid || []
+  if (a.includes('不吃辣') && f.tastes && f.tastes.includes('辣')) return false
+  if (a.includes('素食') && f.category === '肉菜') return false
+  if (a.includes('不吃海鲜') && f.name && SEA_FOOD_RE.test(f.name)) return false
+  return true
+}
 
 function remainText(id) {
   const m = state.marks[id]
@@ -235,7 +245,7 @@ export function initStore() {
   state.hidden = load(LS.hidden, [])
   state.marks = load(LS.marks, {})
   const s = load(LS.settings, {})
-    const defaults = { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showCalories: true, welcomeCycle: 'daily', popupChips: { fortune: true, pairing: false, tips: false }, homeModes: ['wheel', 'draw', 'flip'] }
+    const defaults = { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showCalories: true, showNutrition: true, welcomeCycle: 'daily', popupChips: { fortune: true, pairing: false, tips: false }, homeModes: ['wheel', 'draw', 'flip'], nickname: '', avatar: '😊', city: '', dietAvoid: [], tastePref: [], dietGoal: '', notify: true }
   state.settings = Object.assign({}, defaults, s)
   delete state.settings.showFortune
   delete state.settings.welcomePopupClosed
@@ -385,6 +395,13 @@ export function spinModule(kind) {
 export function pickRecommend(pool) {
   const arr = pool || state.dishPool
   if (!arr.length) return null
+  const prefs = state.settings.tastePref || []
+  if (prefs.length) {
+    const matched = arr.filter(f => f.tastes && f.tastes.some(t => prefs.includes(t)))
+    if (matched.length && Math.random() < 0.7) {
+      return matched[Math.floor(Math.random() * matched.length)]
+    }
+  }
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
@@ -495,6 +512,38 @@ export function replaceHomeMode(oldKey, newKey) {
 export function setPopupChip(key, val) {
   state.settings.popupChips = Object.assign({}, state.settings.popupChips, { [key]: !!val })
   saveSettings({})
+}
+
+export function setProfile(p) {
+  const s2 = Object.assign({}, state.settings, {
+    nickname: p.nickname !== undefined ? String(p.nickname).slice(0, 12) : state.settings.nickname,
+    avatar: p.avatar !== undefined ? p.avatar : state.settings.avatar,
+    city: p.city !== undefined ? String(p.city).slice(0, 20) : state.settings.city
+  })
+  saveSettings(s2)
+}
+
+export const DIET_AVOID = ['不吃辣', '不吃海鲜', '素食', '过敏原']
+export const TASTE_PREFS = ['辣', '清淡', '甜', '咸']
+export const DIET_GOALS = ['减脂', '增肌', '控糖', '均衡']
+const GOAL_PURPOSE = { '减脂': '减肥', '增肌': '增肌', '控糖': '低卡', '均衡': '平衡' }
+export function setDietAvoid(arr) { saveSettings({ dietAvoid: arr.slice() }) }
+export function setTastePref(arr) { saveSettings({ tastePref: arr.slice() }) }
+export function setDietGoal(g) {
+  const goal = DIET_GOALS.includes(g) ? g : ''
+  saveSettings({ dietGoal: goal })
+  const purpose = GOAL_PURPOSE[goal]
+  if (purpose) {
+    state.selPurpose = [purpose]
+    save(LS.purpose, state.selPurpose)
+    resetDishPool()
+  }
+}
+export function isNutrition() { return state.settings.showNutrition !== false }
+export function resetAllData() {
+  try { uni.clearStorageSync() } catch (e) { /* ignore */ }
+  initStore()
+  return true
 }
 
 export function setModeSkin(mode, skinKey) {

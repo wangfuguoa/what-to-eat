@@ -48,7 +48,7 @@
     <!-- 收藏 -->
     <view v-else-if="poolState.tab === 'fav'" class="card">
       <view class="section-head">
-        <text class="card-title">收藏</text>
+        <text class="card-title">菜谱收藏</text>
         <text class="muted">{{ list.length }} 道</text>
       </view>
       <view v-if="!list.length" class="empty">还没有收藏的菜</view>
@@ -95,7 +95,7 @@
     <!-- 科普 -->
     <view v-else class="card science-card">
       <view class="section-head">
-        <text class="card-title">吃饭小科普</text>
+        <text class="card-title">科普妙招</text>
         <text class="muted">点亮 ★ 关注，可置顶</text>
       </view>
       <view v-for="s in scienceList" :key="s.id" class="science-item" :class="{ lit: isLit(s.id), pinned: isPinned(s.id) }">
@@ -163,9 +163,9 @@ import { saveToCloud } from '@/utils/sync'
 
 const SUB_TABS = [
   { key: 'rand', label: '随机池', icon: '🎲' },
-  { key: 'fav', label: '收藏', icon: '⭐' },
+  { key: 'fav', label: '菜谱收藏', icon: '⭐' },
   { key: 'all', label: '菜谱大全', icon: '📖' },
-  { key: 'science', label: '科普', icon: '💡' }
+  { key: 'science', label: '科普妙招', icon: '💡' }
 ]
 const SCIENCE_TIPS = [
   { id: 's1', i: '🥗', t: '每餐搭配', b: '一餐最好有主食+蛋白质+蔬菜，比例约 1:1:2，既饱腹又营养均衡。' },
@@ -177,7 +177,25 @@ const SCIENCE_TIPS = [
   { id: 's7', i: '🍗', t: '蛋白质优先', b: '每餐来一拳蛋白质（蛋/肉/鱼/豆），更能扛饿，减少乱吃零食。' },
   { id: 's8', i: '🌾', t: '膳食纤维', b: '多吃粗粮、蔬菜、豆类，膳食纤维助肠道蠕动，还能稳住血糖。' },
   { id: 's9', i: '🍽️', t: '七分饱刚好', b: '吃到七八分饱就停下，比吃撑更舒服，也更利于控制体重。' },
-  { id: 's10', i: '📵', t: '专心吃饭', b: '吃饭时别边刷手机边吃，容易不知不觉吃多，也更难察觉“饱”。' }
+  { id: 's10', i: '📵', t: '专心吃饭', b: '吃饭时别边刷手机边吃，容易不知不觉吃多，也更难察觉“饱”。' },
+  { id: 's11', i: '🍺', t: '酒后解酒', b: '喝多了别催吐，多喝温水和蜂蜜水，吃点香蕉补钾，睡一觉慢慢缓。' },
+  { id: 's12', i: '🥚', t: '蛋怎么煮', b: '水开后下锅煮 6-8 分钟，蛋黄刚好凝固，营养保留最好。' },
+  { id: 's13', i: '🦐', t: '海鲜解冻', b: '提前一晚放冷藏室解冻最安全，别用热水泡，肉质容易变柴。' },
+  { id: 's14', i: '🌶️', t: '辣到怎么办', b: '吃辣后喝牛奶或酸奶最解辣，别猛灌冰水会刺激肠胃。' },
+  { id: 's15', i: '🥬', t: '绿叶菜焯水', b: '水开后加几滴油和盐再焯，颜色更翠绿，营养流失少。' },
+  { id: 's16', i: '🍚', t: '剩饭处理', b: '剩饭 4 小时内吃完或快速冷藏，重新加热一定要热透。' },
+  { id: 's17', i: '💧', t: '喝水节奏', b: '别等口渴再喝，每 1-2 小时喝一小杯，运动后少量多次补水。' },
+  { id: 's18', i: '🧴', t: '油温判断', b: '筷子插进油锅周围冒小泡，就是六成热，适合煎炒。' },
+  { id: 's19', i: '🍋', t: '去腥小妙招', b: '鱼肉加姜片、料酒或柠檬汁，能有效去腥，还能提鲜。' },
+  { id: 's20', i: '🕰️', t: '早餐别太晚', b: '起床后 1 小时内吃早餐，能唤醒代谢，比不吃更不容易发胖。' },
+  { id: 's21', i: '🍚', t: '控糖主食', b: '把部分白米饭换成杂粮饭，升糖更慢，饱腹感也更久。' },
+  { id: 's22', i: '🧂', t: '调味替代', b: '想控盐可以多用醋、柠檬、香草提味，比单纯少盐更好吃。' },
+  { id: 's23', i: '🛒', t: '买菜的讲究', b: '菜市场挑应季的更便宜也更新鲜；肉类挑颜色鲜红、有弹性。' },
+  { id: 's24', i: '🧊', t: '解冻别反复', b: '冷冻肉解冻后别再冻回去，容易滋生细菌，切好分装更省心。' },
+  { id: 's25', i: '🚶', t: '饭后走一走', b: '饭后散步 10-15 分钟有助消化，别马上躺下或剧烈运动。' },
+  { id: 's26', i: '🧄', t: '大蒜促免疫', b: '蒜末放 10 分钟再炒，蒜素更好地释放，抗氧化效果更好。' },
+  { id: 's27', i: '🍉', t: '水果别贪多', b: '水果含果糖，一天 200-350g 就好，别拿水果当饭吃。' },
+  { id: 's28', i: '🥤', t: '奶茶控糖', b: '喝奶茶选三分糖或无糖，茶底更好，减少负担。' }
 ]
 
 const addVisible = ref(false)
@@ -213,6 +231,7 @@ function poolMeta(f) {
   if (f.staples && f.staples.length) parts.push(f.staples.join(' / '))
   if (f.tastes && f.tastes.length) parts.push(f.tastes.join(' '))
   if (state.settings.showCalories && f.calories) parts.push(f.calories + ' kcal')
+  if (state.settings.showNutrition && f.nutrition) parts.push(f.nutrition)
   return parts.join(' · ')
 }
 function isCustom(id) { return state.custom.some(f => f.id === id) }
