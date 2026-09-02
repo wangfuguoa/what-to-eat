@@ -59,7 +59,7 @@ export const state = reactive({
   vip: null,
   settings: { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showCalories: true, popupChips: { fortune: true, pairing: false, tips: false }, homeModes: ['wheel', 'draw', 'flip'] },
   dailyRecords: [],
-  howToEat: '自己做',
+  howToEat: '点外卖',
   selPurpose: [],
   selCuisine: [],
   selStaples: [],
@@ -191,15 +191,18 @@ export function initStore() {
   const s = load(LS.settings, {})
   const defaults = { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showCalories: true, popupChips: { fortune: true, pairing: false, tips: false }, homeModes: ['wheel', 'draw', 'flip'] }
   state.settings = Object.assign({}, defaults, s)
+  delete state.settings.showFortune
+  delete state.settings.welcomePopupClosed
+  delete state.settings.vipPopupExtra
   state.settings.popupChips = Object.assign({}, defaults.popupChips, s.popupChips || {})
-  if (typeof s.showFortune === 'boolean') state.settings.popupChips.fortune = s.showFortune
-  if (s.welcomePopupClosed === true) state.settings.showWelcomePopup = false
+  // 仅当旧结构里还没有 popupChips 时，才用旧 showFortune 迁移，避免覆盖用户新值
+  if (typeof s.showFortune === 'boolean' && !s.popupChips) state.settings.popupChips.fortune = s.showFortune
   state.settings.homeModes = validHomeModes(state.settings.homeModes)
   state.dailyRecords = load(LS.daily, [])
   state.favorites = load(LS.favorites, [])
   state.history = load(LS.history, [])
   state.vip = load(LS.vip, null)
-  state.howToEat = load(LS.how, '自己做')
+  state.howToEat = load(LS.how, HOW_OPTIONS[0])
   state.selPurpose = load(LS.purpose, [])
   state.selCuisine = load(LS.cuisine, [])
   state.poolLimit = Math.max(1, Number(load(LS.poolLimit, 30)) || 30)

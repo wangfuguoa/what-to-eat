@@ -166,35 +166,17 @@
     </view>
 
     <!-- 今日菜单 -->
+    <!-- 今日菜单（含记录） -->
     <view class="card">
       <view class="section-head">
-        <text class="card-title">今日菜单</text>
-        <text class="muted">{{ state.menu.length }} 道</text>
-      </view>
-      <view v-if="!state.menu.length" class="empty">选好的菜会自动放在这里，点「菜谱」看做法</view>
-      <view v-for="m in state.menu" :key="m.id" class="menu-row">
-        <view class="menu-main">
-          <text class="food-name">{{ m.name }}</text>
-          <text class="food-meta">{{ (m.how || []).join(' / ') + (m.note ? ' · ' + m.note : '') }}</text>
-        </view>
-        <view class="food-actions">
-          <button class="btn small ghost" @tap="openRecipe(m)">🍳 菜谱</button>
-          <button class="btn small ghost danger" @tap="removeMenu(m.id)">删</button>
-        </view>
-      </view>
-    </view>
-
-    <!-- 今日菜谱记录 -->
-    <view class="card">
-      <view class="section-head">
-        <text class="card-title">📒 今日菜谱记录</text>
+        <text class="card-title">🍱 今日菜单</text>
         <button class="btn small ghost" @tap="clearDaily">清空</button>
       </view>
       <view class="daily-summary">
         <text v-if="state.settings.showCalories" class="daily-total">今日累计 <text class="daily-num">{{ dailyCalories }}</text> kcal</text>
         <text v-else class="daily-total">今日吃过的菜已记录</text>
       </view>
-      <view v-if="!state.dailyRecords.length" class="empty">抽中并加入菜单的菜会自动记录营养与卡路里</view>
+      <view v-if="!state.dailyRecords.length" class="empty">选好菜点「就它了」会自动记录到这里，看营养和卡路里</view>
       <view v-for="d in state.dailyRecords" :key="'d'+d.id+d.ts" class="menu-row">
         <view class="menu-main">
           <text class="food-name">{{ d.name }}</text>
@@ -289,7 +271,7 @@
             <text class="vip-perk-d">{{ pp.d }}</text>
           </view>
         </view>
-        <view class="guide"><text>更多弹窗模块与主页玩法，可到「我的 → 个性化」解锁。</text></view>
+        <view class="guide"><text>更多功能与样式，可到「我的 → 个性化」解锁。</text></view>
         <button class="btn primary" @tap="goMine">去「我的 · 个性化」</button>
         <button class="btn ghost" @tap="openVip" v-if="!isVip()">兑换码开通</button>
       </view>
@@ -300,6 +282,7 @@
 </template>
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, getCurrentInstance, nextTick } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import {
   state, STAPLES, TASTES, HOW_OPTIONS, PURPOSE_OPTIONS,
   CUISINE_OPTIONS, RECOMMEND_MODES, WHEEL_COLORS,
@@ -325,6 +308,7 @@ const vipBusy = ref(false)
 const vipFocus = ref(false)
 const toastShow = ref(false)
 const toastMsg = ref('')
+let welcomeAutoShown = false
 const resultConfirmed = ref(false)
 const drawing = ref(false)
 const flipCards = ref([])
@@ -616,11 +600,13 @@ function clearTastes() { setTastes([]) }
 function openVipSheet() { vipSheetVisible.value = true }
 function closeVipSheet() { vipSheetVisible.value = false }
 function showWelcome() {
+  if (welcomeAutoShown) return
   if (!state.settings.showWelcomePopup) return
   welcomeFood.value = pickRecommend(state.dishPool) || null
   fortuneText.value = getFortune()
   pairingText.value = getPairing(welcomeFood.value)
   healthTipText.value = getHealthTip()
+  welcomeAutoShown = true
   setTimeout(() => { welcomeVisible.value = true }, 300)
 }
 function getFortune() {
@@ -679,7 +665,7 @@ function removeMenu(id) {
   saveToCloud()
 }
 
-function openVip() { vipVisible.value = true; vipFocus.value = true }
+function openVip() { vipSheetVisible.value = false; vipVisible.value = true; vipFocus.value = true }
 function closeVip() { vipVisible.value = false; vipFocus.value = false }
 async function redeem() {
   const code = vipCode.value.trim()
@@ -711,6 +697,8 @@ function tryGeo() {
 }
 
 onUnmounted(() => { clearHeroAnim() })
+
+onShow(() => { showWelcome() })
 
 onMounted(() => {
   initStore()
@@ -805,7 +793,8 @@ watch(recommendResult, (val) => {
 .tag.alt { background: var(--accent-soft); color: var(--accent); }
 .tag.cat { background: #e8f4ff; color: #2f8dd0; }
 .note { font-size: 13px; color: #9a8f83; text-align: center; display: block; margin: 8px 0; }
-.action-row { display: flex; gap: 10px; justify-content: center; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0e2d3; }
+.action-row { display: flex; gap: 8px; justify-content: center; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0e2d3; }
+.action-row .btn { flex: 1; min-width: 0; }
 
 .pool-limit { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 14px; padding: 6px 4px 0; }
 .pool-limit-label { font-size: 12px; color: #9a8f83; }
@@ -817,7 +806,7 @@ watch(recommendResult, (val) => {
 .filter-title { font-size: 16px; font-weight: 800; color: #2d2a26; }
 .req { font-size: 10px; color: #fff; background: var(--accent); border-radius: 999px; padding: 2px 6px; margin-left: 6px; vertical-align: middle; }
 .opt { font-size: 10px; color: #d48806; background: #fff3d6; border-radius: 999px; padding: 2px 6px; margin-left: 6px; vertical-align: middle; }
-.spin-mini { border: 1px solid #ffd7c2; background: #fff; color: var(--accent); font-size: 12px; border-radius: 999px; padding: 6px 11px; line-height: 1; }
+.spin-mini { margin: 0 0 0 auto; flex-shrink: 0; border: 1px solid #ffd7c2; background: #fff; color: var(--accent); font-size: 12px; border-radius: 999px; padding: 6px 11px; line-height: 1; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { border: 1px solid #e6d8c8; background: #fff; border-radius: 999px; padding: 7px 14px; font-size: 13px; color: #6b5d4e; }
 .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
@@ -838,7 +827,7 @@ watch(recommendResult, (val) => {
 .btn.primary { background: linear-gradient(150deg, #ff8a50, var(--accent)); color: #fff; box-shadow: 0 4px 12px rgba(255,107,53,0.3); }
 .btn.ghost { background: #fff; border: 1px solid #e6d8c8; color: #6b5d4e; }
 .btn.small { font-size: 12px; padding: 6px 10px; }
-.btn.big { padding: 12px 14px; font-size: 15px; min-height: 46px; }
+.btn.big { padding: 11px 6px; font-size: 14px; min-height: 44px; white-space: nowrap; }
 .btn.danger { color: #e74c3c; border-color: #f3c0bb; }
 
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }

@@ -26,4 +26,6 @@ uni-tabbar {
   border-top: 1px solid #f0e6db;
   box-shadow: 0 -4px 16px rgba(160, 120, 70, 0.08);
 }
+.uni-tabbar__label { font-size: 15px !important; font-weight: 600; }
+.uni-tabbar__item { min-height: 56px; }
 </style>
