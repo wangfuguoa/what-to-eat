@@ -149,9 +149,10 @@ async function getUserData(event, openid) {
     history: doc.history || [],
     customFoods: doc.customFoods || [],
     marks: doc.marks || {},
+    eatenCounts: doc.eatenCounts || {},
     vip: normalizeVip(doc.vip, now)
   } : {
-    favorites: [], history: [], customFoods: [], marks: {}, vip: { status: 'none', expireAt: 0, plan: null }
+    favorites: [], history: [], customFoods: [], marks: {}, eatenCounts: {}, vip: { status: 'none', expireAt: 0, plan: null }
   }
   return ok(Object.assign(data, { ownerType: owner.account ? 'account' : 'anon' }))
 }
@@ -167,6 +168,7 @@ async function saveUserData(event, openid) {
   if (Array.isArray(data.history)) payload.history = data.history
   if (Array.isArray(data.customFoods)) payload.customFoods = data.customFoods
   if (data.marks && typeof data.marks === 'object') payload.marks = data.marks
+  if (data.eatenCounts && typeof data.eatenCounts === 'object') payload.eatenCounts = data.eatenCounts
   payload.updatedAt = db.serverDate()
 
   const existing = await users.where({ _openid: key }).get()
@@ -208,7 +210,7 @@ async function redeemVip(event, openid) {
   } else {
     await users.add({
       _openid: key,
-      favorites: [], history: [], customFoods: [], marks: {},
+      favorites: [], history: [], customFoods: [], marks: {}, eatenCounts: {},
       vip: { status: 'active', plan, expireAt: now + days * 86400000 },
       createdAt: db.serverDate()
     })

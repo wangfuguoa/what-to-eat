@@ -33,7 +33,8 @@ const LS = {
     menu: 'eatpick_menu',
     recMode: 'eatpick_rec_mode',
     theme: 'eatpick_theme',
-    account: 'eatpick_account'
+    account: 'eatpick_account',
+    eatenCounts: 'eatpick_eaten_counts'
   }
 
 function load(key, fallback) {
@@ -59,8 +60,9 @@ export const state = reactive({
     history: [],
     vip: null,
     account: { loggedIn: false, username: '' },
-    settings: { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showCalories: true, popupChips: { fortune: true, pairing: false, tips: false }, homeModes: ['wheel', 'draw', 'flip'] },
-  dailyRecords: [],
+    eatenCounts: {},
+    settings: { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showCalories: true, welcomeCycle: 'daily', popupChips: { fortune: true, pairing: false, tips: false }, homeModes: ['wheel', 'draw', 'flip'] },
+    dailyRecords: [],
   howToEat: '点外卖',
   selPurpose: [],
   selCuisine: [],
@@ -81,11 +83,16 @@ export const state = reactive({
 
 function mergeMeta(f) {
   const m = FOOD_META[f.id] || {}
+  const n = NUTRITION_META[f.id] || {}
   const how = f.how || m.how || (f.recipe && f.recipe.length ? ['自己做'] : ['外卖', '外出'])
   const purpose = f.purpose || m.purpose || ['通用']
   const cuisine = f.cuisine || m.cuisine || '家常'
   const category = f.category || m.category || '小吃'
-  return Object.assign({}, f, { how, purpose, cuisine, category })
+  return Object.assign({}, f, {
+    how, purpose, cuisine, category,
+    calories: f.calories || n.calories || 0,
+    nutrition: f.nutrition || n.nutrition || ''
+  })
 }
 
 function allFoods() {
@@ -191,7 +198,7 @@ export function initStore() {
   state.hidden = load(LS.hidden, [])
   state.marks = load(LS.marks, {})
   const s = load(LS.settings, {})
-  const defaults = { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showCalories: true, popupChips: { fortune: true, pairing: false, tips: false }, homeModes: ['wheel', 'draw', 'flip'] }
+    const defaults = { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showCalories: true, welcomeCycle: 'daily', popupChips: { fortune: true, pairing: false, tips: false }, homeModes: ['wheel', 'draw', 'flip'] }
   state.settings = Object.assign({}, defaults, s)
   delete state.settings.showFortune
   delete state.settings.welcomePopupClosed
@@ -203,6 +210,7 @@ export function initStore() {
   state.dailyRecords = load(LS.daily, [])
     state.favorites = load(LS.favorites, [])
     state.history = load(LS.history, [])
+    state.eatenCounts = load(LS.eatenCounts, {})
     state.vip = load(LS.vip, null)
     state.account = load(LS.account, { loggedIn: false, username: '' })
     state.howToEat = load(LS.how, HOW_OPTIONS[0])
@@ -377,15 +385,22 @@ export function toggleFavorite(id) {
   save(LS.favorites, state.favorites)
 }
 
-export function addHistory(item) {
-  if (!item) return
-  const entry = { id: item.id, name: item.name, ts: Date.now() }
-  const idx = state.history.findIndex(h => h.id === item.id)
-  if (idx >= 0) state.history.splice(idx, 1)
-  state.history.unshift(entry)
-  if (state.history.length > 30) state.history.length = 30
-  save(LS.history, state.history)
-}
+  export function addHistory(item) {
+    if (!item) return
+    const entry = { id: item.id, name: item.name, ts: Date.now() }
+    const idx = state.history.findIndex(h => h.id === item.id)
+    if (idx >= 0) state.history.splice(idx, 1)
+    state.history.unshift(entry)
+    if (state.history.length > 30) state.history.length = 30
+    state.eatenCounts[item.id] = (state.eatenCounts[item.id] || 0) + 1
+    save(LS.eatenCounts, state.eatenCounts)
+    save(LS.history, state.history)
+  }
+
+  export function clearEatenCounts() {
+    state.eatenCounts = {}
+    save(LS.eatenCounts, state.eatenCounts)
+  }
 
 export function clearHistory() {
   state.history = []

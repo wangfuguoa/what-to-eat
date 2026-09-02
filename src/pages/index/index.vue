@@ -190,6 +190,21 @@
     </view>
 
     <!-- 菜谱弹窗 -->
+    <!-- 最近/标记周期 -->
+    <view class="card">
+      <view class="section-head">
+        <text class="card-title">⏱️ 最近/标记周期</text>
+      </view>
+      <view class="field-row">
+        <input class="picker-input" type="number" v-model="memValueStr" placeholder="3" />
+        <picker mode="selector" :range="memUnits" @change="onMemUnit">
+          <view class="picker">{{ memUnit }}</view>
+        </picker>
+      </view>
+      <text class="hint">「最近吃过」与标记排除的保存时长，记住不常有的菜可以设短一点。</text>
+      <button class="btn primary" @tap="saveMem">保存周期</button>
+    </view>
+
     <view v-if="recipeVisible" class="overlay" @tap.self="closeRecipe">
       <view class="modal">
         <button class="modal-close" @tap="closeRecipe">×</button>
@@ -314,6 +329,9 @@ const drawing = ref(false)
 const flipCards = ref([])
 const flipRevealed = ref(null)
 const geoHint = ref('')
+const memValueStr = ref('3')
+const memUnit = ref('天')
+const memUnits = ['天', '周', '月']
 const vipSheetVisible = ref(false)
 const welcomeVisible = ref(false)
 const welcomeFood = ref(null)
@@ -600,11 +618,23 @@ function clearTastes() { setTastes([]) }
 function openVipSheet() { vipSheetVisible.value = true }
 function closeVipSheet() { vipSheetVisible.value = false }
 function showWelcome() {
-  if (welcomeAutoShown) return
   if (!state.settings.showWelcomePopup) return
-  welcomeFood.value = pickRecommend(state.dishPool) || null
+  if (!state.dishPool || !state.dishPool.length) resetDishPool()
+  const food = pickRecommend(state.dishPool)
+  if (!food) return
+  const cycle = state.settings.welcomeCycle || 'daily'
+  if (cycle === 'daily') {
+    const today = new Date().toDateString()
+    let last = ''
+    try { last = uni.getStorageSync('eatpick_welcome_last') || '' } catch (e) {}
+    if (last === today) return
+    try { uni.setStorageSync('eatpick_welcome_last', today) } catch (e) {}
+  } else {
+    if (welcomeAutoShown) return
+  }
+  welcomeFood.value = food
   fortuneText.value = getFortune()
-  pairingText.value = getPairing(welcomeFood.value)
+  pairingText.value = getPairing(food)
   healthTipText.value = getHealthTip()
   welcomeAutoShown = true
   setTimeout(() => { welcomeVisible.value = true }, 300)
@@ -651,8 +681,18 @@ function clearDaily() {
     }
   })
 }
-function removeDaily(id) { removeDailyRecord(id); toast('已移除'); saveToCloud() }
-function dailyMeta(d) {
+  function removeDaily(id) { removeDailyRecord(id); toast('已移除'); saveToCloud() }
+  function onMemUnit(e) {
+    memUnit.value = ['天', '周', '月'][Number(e.detail.value)]
+  }
+  function saveMem() {
+    const v = Math.max(1, parseInt(memValueStr.value, 10) || 3)
+    memValueStr.value = String(v)
+    saveSettings({ memoryValue: v, memoryUnit: memUnit.value })
+    toast('最近/标记周期已保存')
+    saveToCloud()
+  }
+  function dailyMeta(d) {
   let s = ''
   if (d.nutrition) s += d.nutrition
   if (state.settings.showCalories && d.calories) s += (s ? ' · ' : '') + d.calories + ' kcal'
@@ -698,13 +738,18 @@ function tryGeo() {
 
 onUnmounted(() => { clearHeroAnim() })
 
-onShow(() => { showWelcome() })
+onShow(() => {
+  if ((state.settings.welcomeCycle || 'daily') === 'each') welcomeAutoShown = false
+  showWelcome()
+})
 
 onMounted(() => {
   initStore()
   if (!state.dishPool.length) resetDishPool()
   const first = pickRecommend(state.dishPool)
   state.recommendResult = first || null
+  memValueStr.value = String(state.settings.memoryValue || 3)
+  memUnit.value = state.settings.memoryUnit || '天'
   resultConfirmed.value = false
   if (mode.value === 'flip') generateFlips()
   else if (mode.value === 'wheel') nextTick(drawWheel)
@@ -813,6 +858,9 @@ watch(recommendResult, (val) => {
 .hint { font-size: 12px; color: #b0a49a; margin-top: 8px; display: block; }
 
 .section-head { display: flex; justify-content: space-between; align-items: center; }
+.field-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.picker-input { border: 1px solid #e6d8c8; border-radius: 12px; padding: 12px 14px; font-size: 16px; width: 100px; height: 46px; box-sizing: border-box; color: #2d2a26; background: #fff; box-shadow: 0 2px 8px rgba(160,120,70,0.06); }
+.picker { border: 1px solid #e6d8c8; border-radius: 12px; padding: 12px 14px; font-size: 16px; color: #2d2a26; background: #fff; box-shadow: 0 2px 8px rgba(160,120,70,0.06); }
 .card-title { font-size: 16px; font-weight: 800; color: #2d2a26; }
 .muted { font-size: 12px; color: #b0a49a; }
 .empty { color: #b0a49a; padding: 14px 0; text-align: center; font-size: 13px; }
