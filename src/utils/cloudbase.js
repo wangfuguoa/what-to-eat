@@ -5,6 +5,19 @@ const ENV_ID = 'codex-d2glhcz9z707d54bb'
 
 let app = null
 let authed = false
+const AUTH_TOKEN_KEY = 'eatpick_auth_token'
+
+export function getAuthToken() {
+  try { return uni.getStorageSync(AUTH_TOKEN_KEY) || '' } catch (e) { return '' }
+}
+
+export function setAuthToken(token) {
+  try { uni.setStorageSync(AUTH_TOKEN_KEY, token || '') } catch (e) { /* ignore */ }
+}
+
+export function clearAuthToken() {
+  setAuthToken('')
+}
 
 function getApp() {
   if (!app) {
@@ -36,10 +49,11 @@ export async function ensureLogin() {
 
 export async function callApi(action, data = {}) {
   const _app = await ensureLogin()
+  const authToken = getAuthToken()
   try {
     const res = await _app.callFunction({
       name: 'eatpick-api',
-      data: { action, ...data }
+      data: Object.assign({ action }, data, authToken ? { authToken } : {})
     })
     const result = res && res.result
     if (result && result.ok === false) {

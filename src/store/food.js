@@ -29,11 +29,12 @@ const LS = {
   how: 'eatpick_how',
   purpose: 'eatpick_purpose',
   cuisine: 'eatpick_cuisine',
-  poolLimit: 'eatpick_pool_limit',
-  menu: 'eatpick_menu',
-  recMode: 'eatpick_rec_mode',
-  theme: 'eatpick_theme'
-}
+    poolLimit: 'eatpick_pool_limit',
+    menu: 'eatpick_menu',
+    recMode: 'eatpick_rec_mode',
+    theme: 'eatpick_theme',
+    account: 'eatpick_account'
+  }
 
 function load(key, fallback) {
   try {
@@ -54,10 +55,11 @@ export const state = reactive({
   custom: [],
   hidden: [],
   marks: {},
-  favorites: [],
-  history: [],
-  vip: null,
-  settings: { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showCalories: true, popupChips: { fortune: true, pairing: false, tips: false }, homeModes: ['wheel', 'draw', 'flip'] },
+    favorites: [],
+    history: [],
+    vip: null,
+    account: { loggedIn: false, username: '' },
+    settings: { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showCalories: true, popupChips: { fortune: true, pairing: false, tips: false }, homeModes: ['wheel', 'draw', 'flip'] },
   dailyRecords: [],
   howToEat: '点外卖',
   selPurpose: [],
@@ -199,10 +201,11 @@ export function initStore() {
   if (typeof s.showFortune === 'boolean' && !s.popupChips) state.settings.popupChips.fortune = s.showFortune
   state.settings.homeModes = validHomeModes(state.settings.homeModes)
   state.dailyRecords = load(LS.daily, [])
-  state.favorites = load(LS.favorites, [])
-  state.history = load(LS.history, [])
-  state.vip = load(LS.vip, null)
-  state.howToEat = load(LS.how, HOW_OPTIONS[0])
+    state.favorites = load(LS.favorites, [])
+    state.history = load(LS.history, [])
+    state.vip = load(LS.vip, null)
+    state.account = load(LS.account, { loggedIn: false, username: '' })
+    state.howToEat = load(LS.how, HOW_OPTIONS[0])
   state.selPurpose = load(LS.purpose, [])
   state.selCuisine = load(LS.cuisine, [])
   state.poolLimit = Math.max(1, Number(load(LS.poolLimit, 30)) || 30)
@@ -394,10 +397,19 @@ export function isVip() {
   return !!(v && v.status === 'active' && v.expireAt && v.expireAt > Date.now())
 }
 
-export function setVip(vip) {
-  state.vip = vip || null
-  save(LS.vip, state.vip)
-}
+  export function setVip(vip) {
+    state.vip = vip || null
+    save(LS.vip, state.vip)
+  }
+
+  export function setAccount(acc) {
+    state.account = acc || { loggedIn: false, username: '' }
+    save(LS.account, state.account)
+  }
+
+  export function clearAccount() {
+    setAccount({ loggedIn: false, username: '' })
+  }
 
 export function saveSettings(settings) {
   state.settings = Object.assign({}, state.settings, settings)

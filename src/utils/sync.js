@@ -1,6 +1,6 @@
 // 云端同步：把 store 的 data 同步到 CloudBase；本地始终优先可用（降级模式）
-import { state, setVip } from '@/store/food'
-import { callApi, ensureLogin } from './cloudbase'
+import { state, setVip, setAccount, clearAccount } from '@/store/food'
+import { callApi, ensureLogin, getAuthToken, setAuthToken, clearAuthToken } from './cloudbase'
 
 const CLOUD_SYNC_KEY = 'eatpick_cloud_last_sync'
 
@@ -18,12 +18,12 @@ function snapshot() {
   }
 }
 
-export async function initCloudSync() {
-  if (initialized) return
+export async function initCloudSync(force = false) {
+  if (initialized && !force) return
   initialized = true
   try {
     await ensureLogin()
-    // 尝试从云端拉取并合并到本地（云优先，本地无数据时填充）
+    // 尝试从云端拉取并合并到本地（本地无数据时填充，不覆盖本地）
     const data = await callApi('getUserData')
     if (data) mergeFromCloud(data)
     // 再上报一次，确保云端有最新
@@ -33,7 +33,38 @@ export async function initCloudSync() {
   }
 }
 
+// ---------- 账号登录 / 注册 / 登出 ----------
+
+export async function loginAccount(username, password) {
+  const data = await callApi('login', { username, password })
+  if (!data || !data.token) throw new Error('登录失败')
+  setAuthToken(data.token)
+  setAccount({ loggedIn: true, username: data.username })
+  await initCloudSync(true)
+  return data
+}
+
+export async function registerAccount(username, password) {
+  const data = await callApi('register', { username, password })
+  if (!data || !data.token) throw new Error('注册失败')
+  setAuthToken(data.token)
+  setAccount({ loggedIn: true, username: data.username })
+  await initCloudSync(true)
+  return data
+}
+
+export async function logoutAccount() {
+  const token = getAuthToken()
+  try { if (token) await callApi('logout') } catch (e) { /* 远端登出失败不阻断 */ }
+  clearAuthToken()
+  clearAccount()
+}
+
 function mergeFromCloud(data) {
+  // 服务端判定为匿名（账号 token 失效/登出），同步清除本地登录态
+  if (data.ownerType === 'anon' && state.account.loggedIn) {
+    clearAccount()
+  }
   // 仅当本地为空时用云端填充，避免覆盖用户刚改的数据
   if (!state.custom || state.custom.length === 0) {
     if (Array.isArray(data.customFoods) && data.customFoods.length) state.custom = data.customFoods

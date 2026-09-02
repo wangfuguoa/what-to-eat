@@ -10,13 +10,15 @@
       </view>
     </view>
 
-    <view class="card profile-card">
-      <view class="avatar">😊</view>
-      <view class="profile-info">
-        <text class="nickname">美食爱好者</text>
-        <text class="profile-sub">匿名登录 · 数据已云同步</text>
+      <view class="card profile-card">
+        <view class="avatar">😊</view>
+        <view class="profile-info">
+          <text class="nickname">{{ state.account.loggedIn ? state.account.username : '未登录' }}</text>
+          <text class="profile-sub">{{ state.account.loggedIn ? '已登录 · 数据随账号云同步' : '登录后可同步个性化与 VIP' }}</text>
+        </view>
+        <button v-if="state.account.loggedIn" class="btn small ghost" @tap="onLogout">退出</button>
+        <button v-else class="btn small primary" @tap="openAccount">登录/注册</button>
       </view>
-    </view>
 
     <view class="card">
       <view class="section-head">
@@ -106,8 +108,8 @@
     </view>
 
     <!-- VIP 兑换 -->
-    <view v-if="vipVisible" class="overlay" @tap.self="closeVip">
-      <view class="modal">
+      <view v-if="vipVisible" class="overlay" @tap.self="closeVip">
+        <view class="modal">
         <button class="modal-close" @tap="closeVip">×</button>
         <text class="modal-title">💎 VIP 会员</text>
         <view class="vip-status" :class="{ on: isVip() }">
@@ -120,25 +122,56 @@
           <input class="input vip-input" v-model="vipCode" maxlength="32" confirm-type="done" @confirm="redeem" :focus="vipFocus" placeholder="请输入兑换码，如 VIP2026" />
         </view>
         <button class="btn primary" @tap="redeem" :disabled="vipBusy">{{ vipBusy ? '兑换中…' : '立即兑换' }}</button>
+        </view>
       </view>
-    </view>
 
-    <view class="toast" :class="{ show: toastShow }">{{ toastMsg }}</view>
+      <view v-if="accountVisible" class="overlay" @tap.self="closeAccount">
+        <view class="modal">
+          <button class="modal-close" @tap="closeAccount">×</button>
+          <text class="modal-title">{{ accountMode === 'login' ? '🔑 登录' : '✨ 注册' }}</text>
+          <view class="field">
+            <text class="field-label">用户名</text>
+            <input class="input" v-model="accUsername" maxlength="20" placeholder="2-20位中英文/数字/下划线" />
+          </view>
+          <view class="field">
+            <text class="field-label">密码</text>
+            <input class="input" v-model="accPassword" :password="true" maxlength="32" placeholder="至少6位" />
+          </view>
+          <view v-if="accountMode === 'register'" class="field">
+            <text class="field-label">确认密码</text>
+            <input class="input" v-model="accPassword2" :password="true" maxlength="32" placeholder="再次输入密码" />
+          </view>
+          <button class="btn primary" @tap="submitAccount" :disabled="accBusy">{{ accBusy ? '处理中…' : (accountMode === 'login' ? '登录' : '注册并登录') }}</button>
+          <view class="mode-switch">
+            <text class="mode-switch-text">{{ accountMode === 'login' ? '还没有账号？' : '已有账号？' }}</text>
+            <text class="mode-switch-link" @tap="toggleAccountMode">{{ accountMode === 'login' ? '去注册' : '去登录' }}</text>
+          </view>
+          <text class="account-note">登录后，收藏、历史、标记、VIP 都会跟随账号，换设备可恢复。</text>
+        </view>
+      </view>
+  
+      <view class="toast" :class="{ show: toastShow }">{{ toastMsg }}</view>
   </view>
 </template>
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { state, THEMES, setTheme, isVip, clearHistory, saveSettings, RECOMMEND_MODES, isModeVip, replaceHomeMode, setPopupChip, VIP_POPUP_CHIPS } from '@/store/food'
-import { saveToCloud, refreshVip } from '@/utils/sync'
-import { callApi } from '@/utils/cloudbase'
+  import { ref, computed, onMounted } from 'vue'
+  import { state, THEMES, setTheme, isVip, clearHistory, saveSettings, RECOMMEND_MODES, isModeVip, replaceHomeMode, setPopupChip, VIP_POPUP_CHIPS } from '@/store/food'
+  import { saveToCloud, refreshVip, loginAccount, registerAccount, logoutAccount } from '@/utils/sync'
+  import { callApi } from '@/utils/cloudbase'
 
 const units = ['天', '周', '月']
 const settingsForm = ref({ memoryValue: 3, memoryUnit: '天', memoryValueStr: '3' })
 const vipVisible = ref(false)
 const vipCode = ref('')
 const vipBusy = ref(false)
-const vipFocus = ref(false)
-const toastShow = ref(false)
+  const vipFocus = ref(false)
+  const accountVisible = ref(false)
+  const accountMode = ref('login')
+  const accUsername = ref('')
+  const accPassword = ref('')
+  const accPassword2 = ref('')
+  const accBusy = ref(false)
+  const toastShow = ref(false)
 const toastMsg = ref('')
 let toastTimer = null
 
@@ -224,9 +257,42 @@ function formatTime(ts) {
   const mi = String(d.getMinutes()).padStart(2, '0')
   return d.getFullYear() + '-' + mm + '-' + dd + ' ' + hh + ':' + mi
 }
-function openVip() { vipVisible.value = true; vipFocus.value = true }
-function closeVip() { vipVisible.value = false; vipFocus.value = false }
-async function redeem() {
+  function openVip() { vipVisible.value = true; vipFocus.value = true }
+  function closeVip() { vipVisible.value = false; vipFocus.value = false }
+  function openAccount() { accountVisible.value = true; accUsername.value = ''; accPassword.value = ''; accPassword2.value = ''; accountMode.value = 'login' }
+  function closeAccount() { accountVisible.value = false }
+  function toggleAccountMode() { accountMode.value = accountMode.value === 'login' ? 'register' : 'login' }
+  async function submitAccount() {
+    const username = accUsername.value.trim()
+    const password = accPassword.value
+    if (!username) { toast('请输入用户名'); return }
+    if (!password) { toast('请输入密码'); return }
+    if (accountMode.value === 'register') {
+      if (password.length < 6) { toast('密码至少6位'); return }
+      if (password !== accPassword2.value) { toast('两次密码不一致'); return }
+    }
+    accBusy.value = true
+    try {
+      if (accountMode.value === 'login') {
+        await loginAccount(username, password)
+        toast('登录成功')
+      } else {
+        await registerAccount(username, password)
+        toast('注册成功，已自动登录')
+      }
+      accountVisible.value = false
+      await refreshVip()
+    } catch (e) {
+      toast((e && e.message) || '操作失败')
+    } finally {
+      accBusy.value = false
+    }
+  }
+  async function onLogout() {
+    await logoutAccount()
+    toast('已退出登录')
+  }
+  async function redeem() {
   const code = vipCode.value.trim()
   if (!code) { toast('请输入兑换码'); return }
   vipBusy.value = true
@@ -295,9 +361,13 @@ onMounted(() => {
 .modal-title { font-size: 18px; font-weight: 800; display: block; margin-bottom: 12px; color: #2d2a26; }
 .field { margin-bottom: 12px; }
 .field-label { font-size: 13px; color: #8a7b6c; display: block; margin-bottom: 4px; }
-.input { border: 1px solid #e6d8c8; border-radius: 10px; padding: 9px 11px; font-size: 14px; width: 100%; box-sizing: border-box; }
-.vip-input { font-size: 16px; min-height: 44px; padding: 12px; box-sizing: border-box; }
-.toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: rgba(0,0,0,0.82); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity 0.2s; z-index: 200; pointer-events: none; max-width: 80vw; text-align: center; }
+  .input { border: 1px solid #e6d8c8; border-radius: 10px; padding: 9px 11px; font-size: 14px; width: 100%; box-sizing: border-box; }
+  .vip-input { font-size: 16px; min-height: 44px; padding: 12px; box-sizing: border-box; }
+  .mode-switch { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 14px; }
+  .mode-switch-text { font-size: 13px; color: #9a8f83; }
+  .mode-switch-link { font-size: 13px; color: var(--accent); font-weight: 700; }
+  .account-note { display: block; margin-top: 14px; font-size: 12px; color: #b0a49a; text-align: center; line-height: 1.5; }
+  .toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: rgba(0,0,0,0.82); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity 0.2s; z-index: 200; pointer-events: none; max-width: 80vw; text-align: center; }
 .toast.show { opacity: 1; }
 .picker-input { border: 1px solid #e6d8c8; border-radius: 12px; padding: 12px 14px; font-size: 16px; width: 100px; height: 46px; box-sizing: border-box; color: #2d2a26; background: #fff; box-shadow: 0 2px 8px rgba(160,120,70,0.06); }
 .opt-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f4ece3; }
