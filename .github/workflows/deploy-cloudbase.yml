@@ -1,4 +1,4 @@
-name: Deploy to CloudBase Static Hosting
+name: Deploy (CloudBase + COS)
 
 on:
   push:
@@ -34,3 +34,14 @@ jobs:
 
       - name: Deploy to CloudBase Static Hosting
         run: tcb hosting deploy ./dist/build/h5 / -e ${{ secrets.TCB_ENV_ID }}
+
+      - name: Install COS SDK
+        run: mkdir -p $HOME/cosdeploy && cd $HOME/cosdeploy && npm init -y >/dev/null 2>&1 && npm i cos-nodejs-sdk-v5 --registry=https://registry.npmmirror.com
+
+      - name: Deploy to COS Static Website
+        env:
+          TCB_SECRET_ID: ${{ secrets.TCB_SECRET_ID }}
+          TCB_SECRET_KEY: ${{ secrets.TCB_SECRET_KEY }}
+          COS_BUCKET: what-to-eat-1427137188
+          COS_REGION: ap-hongkong
+        run: NODE_PATH=$HOME/cosdeploy/node_modules node $GITHUB_WORKSPACE/scripts/deploy-cos.js
