@@ -300,7 +300,6 @@
 </template>
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, getCurrentInstance, nextTick } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
 import {
   state, STAPLES, TASTES, HOW_OPTIONS, PURPOSE_OPTIONS,
   CUISINE_OPTIONS, RECOMMEND_MODES, WHEEL_COLORS,
