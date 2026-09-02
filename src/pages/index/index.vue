@@ -22,7 +22,13 @@
       </view>
 
       <!-- 转盘 -->
-      <view v-if="mode === 'wheel'" class="hero-wheel-wrap">
+      <view v-if="modeLocked" class="hero-locked" @tap="openVipSheet">
+        <text class="hero-locked-ic">🔒</text>
+        <text class="hero-locked-t">VIP 专属玩法</text>
+        <text class="hero-locked-d">开通会员后即可解锁使用</text>
+      </view>
+
+      <view v-else-if="mode === 'wheel'" class="hero-wheel-wrap">
         <canvas canvas-id="heroWheel" id="heroWheel" class="hero-wheel" :style="{ width: canvasSize + 'px', height: canvasSize + 'px' }"></canvas>
         <view class="hero-wheel-pulse" :class="{ spin: heroSpinning }"></view>
         <view class="wheel-center" @tap="toggleWheel">
@@ -188,14 +194,17 @@
     <view class="card">
       <view class="section-head">
         <text class="card-title">🍱 今日菜单</text>
-        <button class="btn small ghost" @tap="clearDaily">清空</button>
+        <view class="head-actions">
+          <button v-if="state.dailyRecords.length > 1" class="btn small ghost" @tap="dailyExpanded = !dailyExpanded">{{ dailyExpanded ? '收起 ▲' : '展开 ▼' }}</button>
+          <button class="btn small ghost" @tap="clearDaily">清空</button>
+        </view>
       </view>
       <view class="daily-summary">
         <text v-if="state.settings.showCalories" class="daily-total">今日累计 <text class="daily-num">{{ dailyCalories }}</text> kcal</text>
         <text v-else class="daily-total">今日吃过的菜已记录</text>
       </view>
       <view v-if="!state.dailyRecords.length" class="empty">选好菜点「就它了」会自动记录到这里，看营养和卡路里</view>
-      <view v-for="d in state.dailyRecords" :key="'d'+d.id+d.ts" class="menu-row">
+      <view v-for="d in shownDaily" :key="'d'+d.id+d.ts" class="menu-row">
         <view class="menu-main">
           <text class="food-name">{{ d.name }}</text>
           <text class="food-meta">{{ dailyMeta(d) }}</text>
@@ -211,7 +220,10 @@
     <view class="card">
       <view class="section-head">
         <text class="card-title">🕘 最近吃过</text>
-        <button class="btn small ghost" @tap="confirmClearHistory">清空</button>
+        <view class="head-actions">
+          <button v-if="recentEaten.length > 1" class="btn small ghost" @tap="recentExpanded = !recentExpanded">{{ recentExpanded ? '收起 ▲' : '展开 ▼' }}</button>
+          <button class="btn small ghost" @tap="confirmClearHistory">清空</button>
+        </view>
       </view>
       <view v-if="!recentEaten.length" class="empty">还没有记录，点「就它了」会记到这里</view>
       <view v-if="!recentEaten.length && state.history.length" class="empty">该周期内暂无记录（可调大周期）</view>
@@ -224,7 +236,6 @@
           </view>
         </view>
       </view>
-      <button v-if="recentEaten.length > 5" class="btn small ghost expand-btn" @tap="recentExpanded = !recentExpanded">{{ recentExpanded ? '收起 ▲' : '查看更多 ▼' }}</button>
     </view>
 
     <view v-if="recipeVisible" class="overlay" @tap.self="closeRecipe">
@@ -352,6 +363,7 @@ const flipCards = ref([])
 const flipRevealed = ref(null)
 const geoHint = ref('')
 const recentExpanded = ref(false)
+const dailyExpanded = ref(false)
 const vipSheetVisible = ref(false)
 const welcomeVisible = ref(false)
 const welcomeFood = ref(null)
@@ -361,7 +373,7 @@ const diceFace = ref('🎯')
 
 const VIP_PERKS = [
   { i: '🧩', t: '弹窗显示控制', d: '自由增删欢迎弹窗里的搭配建议、健康小贴士等模块' },
-  { i: '🎮', t: '额外抽取玩法', d: '解锁掷骰子、扭蛋，惊喜感更强' },
+  { i: '🎮', t: '更多抽取玩法', d: '解锁掷骰子、扭蛋、飞镖等高级玩法' },
   { i: '🔁', t: '主页玩法替换', d: '把首页三个玩法之一换成 VIP 专属玩法' }
 ]
 
@@ -376,6 +388,7 @@ const dailyCalories = computed(() => todayCalories.value)
 const homeModes = computed(() => state.settings.homeModes || ['wheel', 'draw', 'flip'])
 function modeByKey(k) { return RECOMMEND_MODES.find(m => m.key === k) }
 const skin = computed(() => getModeSkin(mode.value))
+const modeLocked = computed(() => isModeVip(mode.value) && !isVip())
 const MS = { 天: 86400000, 周: 7 * 86400000, 月: 30 * 86400000 }
 const expanded = reactive({ purpose: false, cuisineTaste: false, staple: false })
 function toggleFold(k) { expanded[k] = !expanded[k] }
@@ -385,7 +398,8 @@ const recentEaten = computed(() => {
   const cutoff = Date.now() - windowMs
   return state.history.filter(h => h.ts >= cutoff)
 })
-const shownRecent = computed(() => recentExpanded.value ? recentEaten.value : recentEaten.value.slice(0, 5))
+const shownRecent = computed(() => recentExpanded.value ? recentEaten.value : recentEaten.value.slice(0, 1))
+const shownDaily = computed(() => dailyExpanded.value ? state.dailyRecords : state.dailyRecords.slice(0, 1))
 const pairingText = ref('')
 const healthTipText = ref('')
 
@@ -854,6 +868,10 @@ watch(recommendResult, (val) => {
 .hero { border: 1px solid #ffe1cf; background: linear-gradient(180deg, #fff 0%, #fff6ee 100%); }
 .hero-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .hero-title { font-size: 16px; font-weight: 800; color: #2d2a26; }
+.hero-locked { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 22px 16px; text-align: center; background: #faf4ec; border: 1px dashed #e6d8c8; border-radius: 16px; }
+.hero-locked-ic { font-size: 30px; }
+.hero-locked-t { font-size: 15px; font-weight: 700; color: #2d2a26; }
+.hero-locked-d { font-size: 12px; color: #9a8f83; }
 .mode-tabs { display: flex; gap: 3px; background: #f4ece3; border-radius: 999px; padding: 3px; }
 .mode-tab { font-size: 12px; color: #8a7b6c; padding: 5px 11px; border-radius: 999px; white-space: nowrap; }
 .mode-tab.active { background: var(--accent); color: #fff; font-weight: 700; }
@@ -925,6 +943,7 @@ watch(recommendResult, (val) => {
 .hint { font-size: 12px; color: #b0a49a; margin-top: 8px; display: block; }
 
 .section-head { display: flex; justify-content: space-between; align-items: center; }
+.head-actions { display: flex; align-items: center; gap: 6px; }
 .field-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .picker-input { border: 1px solid #e6d8c8; border-radius: 12px; padding: 12px 14px; font-size: 16px; width: 100px; height: 46px; box-sizing: border-box; color: #2d2a26; background: #fff; box-shadow: 0 2px 8px rgba(160,120,70,0.06); }
 .picker { border: 1px solid #e6d8c8; border-radius: 12px; padding: 12px 14px; font-size: 16px; color: #2d2a26; background: #fff; box-shadow: 0 2px 8px rgba(160,120,70,0.06); }

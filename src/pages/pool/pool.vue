@@ -8,7 +8,7 @@
           <text class="brand-sub">搜一搜，挑一挑</text>
         </view>
       </view>
-      <button class="tool-btn" @tap="openAdd">＋ 添加</button>
+      <button class="tool-btn" @tap="openAdd">＋ 菜谱添加</button>
     </view>
 
     <!-- 子页切换 -->

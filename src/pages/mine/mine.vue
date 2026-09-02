@@ -115,7 +115,7 @@
       </view>
 
       <view class="opt-group-title">主页玩法</view>
-      <view class="guide"><text>首页最多显示三种玩法，开通 VIP 可用掷骰/扭蛋替换其中之一。</text></view>
+      <view class="guide"><text>首页最多显示三种玩法，开通 VIP 可用掷骰、扭蛋、飞镖等替换其中之一。</text></view>
       <view v-for="(k, idx) in state.settings.homeModes" :key="'hm'+idx" class="opt-row" @tap="onReplaceMode(k)">
         <view class="opt-info"><text class="opt-t">{{ modeLabel(k) }}<text v-if="isModeVip(k)" class="vip-tag">VIP</text></text><text class="opt-d">点击可替换成其他玩法</text></view>
         <text class="replace-arrow">{{ isModeVip(k) && !isVip() ? '🔒' : '⇄' }}</text>
@@ -126,11 +126,11 @@
       </view>
 
       <view class="opt-group-title">玩法皮肤</view>
-      <view class="guide"><text>给每种抽取玩法换外观，点一下即可切换。后续会陆续上线更多付费皮肤。</text></view>
+      <view class="guide"><text>每种玩法 3 款免费皮肤，VIP 独享第 4 款高级外观。</text></view>
       <view v-for="m in RECOMMEND_MODES" :key="'sk'+m.key" class="skin-row">
         <view class="skin-row-head"><text class="skin-mode">{{ m.icon }} {{ m.label }}</text><text class="skin-current">{{ skinLabel(m.key) }}</text></view>
         <view class="skin-choices">
-          <view v-for="s in (MODE_SKINS[m.key] || [])" :key="s.key" class="skin-chip" :class="{ active: skinActive(m.key, s.key) }" @tap="pickSkin(m.key, s.key)">{{ s.label }}</view>
+          <view v-for="s in (MODE_SKINS[m.key] || [])" :key="s.key" class="skin-chip" :class="{ active: skinActive(m.key, s.key), vip: s.vipOnly, locked: s.vipOnly && !isVip() }" @tap="pickSkin(m.key, s.key)">{{ s.label }}{{ s.vipOnly && !isVip() ? ' 🔒' : '' }}</view>
         </view>
       </view>
       </view>
@@ -226,7 +226,7 @@
           <text class="modal-title">✏️ 编辑资料</text>
           <view class="field">
             <text class="field-label">昵称</text>
-            <input class="input" v-model="nicknameInput" maxlength="12" placeholder="2-12字昵称" />
+            <input class="input account-input" v-model="nicknameInput" maxlength="12" confirm-type="done" placeholder="2-12字昵称" />
           </view>
           <view class="field">
             <text class="field-label">头像</text>
@@ -236,11 +236,11 @@
           </view>
           <view class="field">
             <text class="field-label">常住城市</text>
-            <input class="input" v-model="cityInput" maxlength="20" placeholder="如：上海" />
+            <input class="input account-input" v-model="cityInput" maxlength="20" confirm-type="done" placeholder="如：上海" />
           </view>
           <view class="bind-row">
-            <button class="btn small ghost" @tap="toast('小程序可微信一键登录（后期接后端）')">绑定微信</button>
-            <button class="btn small ghost" @tap="toast('手机号绑定功能即将上线')">绑定手机</button>
+            <button class="btn small ghost" @tap="toast('绑定微信功能后期上线')">绑定微信</button>
+            <button class="btn small ghost" @tap="toast('手机绑定功能后期上线')">绑定手机</button>
           </view>
           <button class="btn primary" @tap="saveProfile">保存</button>
         </view>
@@ -329,9 +329,9 @@ const streakDays = computed(() => {
 
 const VIP_PERKS = [
   { i: '🧩', t: '弹窗显示控制' },
-  { i: '🎮', t: '掷骰 / 扭蛋玩法' },
+  { i: '🎮', t: '更多抽取玩法' },
   { i: '🎨', t: '主页玩法替换' },
-  { i: '🔁', t: '更多皮肤' }
+  { i: '🔁', t: '更多皮肤切换' }
 ]
 
 function toast(msg) {
@@ -362,6 +362,8 @@ function skinActive(mode, key) {
   return cur === key
 }
 function pickSkin(mode, key) {
+  const s = (MODE_SKINS[mode] || []).find(x => x.key === key)
+  if (s && s.vipOnly && !isVip()) { toast('解锁 VIP 即可使用此皮肤'); return }
   setModeSkin(mode, key)
   saveToCloud()
   toast('已切换' + modeLabel(mode) + '皮肤：' + skinLabel(mode))
@@ -540,19 +542,19 @@ function onReplaceWith(newKey) {
 .section-head .btn { margin: 0; }
 .guide { font-size: 12px; color: #9a8f83; margin: -2px 0 10px; }
 .card-title.inline { margin-bottom: 0; }
-.vip-status { border: 1px solid #f0d6a0; background: #fff8e8; border-radius: 14px; padding: 14px; margin-bottom: 4px; }
+.vip-status { border: 1px solid #f0d6a0; background: #fff8e8; border-radius: 12px; padding: 10px; margin-bottom: 2px; }
 .vip-status.on { border-color: #ffcf00; background: #fffbe6; }
-.vip-badge { font-size: 18px; font-weight: 800; color: #d48806; display: block; }
+.vip-badge { font-size: 16px; font-weight: 800; color: #d48806; display: block; }
 .vip-expire { font-size: 13px; color: #9a8f83; display: block; margin-top: 4px; }
 .muted { font-size: 12px; color: #b0a49a; }
-.vip-perk-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
-.vip-perk-cell { background: #faf4ec; border-radius: 12px; padding: 10px 4px; text-align: center; }
-.vip-perk-ic { font-size: 20px; display: block; }
-.vip-perk-t { font-size: 11px; color: #6b5d4e; display: block; margin-top: 4px; line-height: 1.3; }
-.vip-perk-state { font-size: 12px; color: #1a9e5c; display: block; margin-top: 4px; font-weight: 700; }
-.vip-cta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; background: linear-gradient(120deg, #fff3d6, #ffe6b0); border: 1px solid #f0d6a0; border-radius: 14px; padding: 12px; }
-.vip-cta-t { font-size: 14px; font-weight: 800; color: #b8860b; display: block; }
-.vip-cta-d { font-size: 12px; color: #b0985a; display: block; margin-top: 2px; }
+.vip-perk-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+.vip-perk-cell { background: #faf4ec; border-radius: 10px; padding: 7px 4px; text-align: center; }
+.vip-perk-ic { font-size: 18px; display: block; }
+.vip-perk-t { font-size: 10px; color: #6b5d4e; display: block; margin-top: 3px; line-height: 1.3; }
+.vip-perk-state { font-size: 11px; color: #1a9e5c; display: block; margin-top: 2px; font-weight: 700; }
+.vip-cta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; background: linear-gradient(120deg, #fff3d6, #ffe6b0); border: 1px solid #f0d6a0; border-radius: 12px; padding: 8px; }
+.vip-cta-t { font-size: 13px; font-weight: 800; color: #b8860b; display: block; }
+.vip-cta-d { font-size: 11px; color: #b0985a; display: block; margin-top: 1px; }
 .vip-cta .btn { flex-shrink: 0; }
 .theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -587,7 +589,7 @@ function onReplaceWith(newKey) {
 .modal-close { position: absolute; top: 10px; right: 12px; background: #f0ece7; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 18px; color: #6b5d4e; line-height: 1; }
 .modal-title { font-size: 18px; font-weight: 800; display: block; margin-bottom: 12px; color: #2d2a26; }
 .field { margin-bottom: 12px; }
-.field-label { font-size: 13px; color: #8a7b6c; display: block; margin-bottom: 4px; }
+.field-label { font-size: 14px; color: #8a7b6c; display: block; margin-bottom: 5px; }
   .input { border: 1px solid #e6d8c8; border-radius: 10px; padding: 9px 11px; font-size: 14px; width: 100%; box-sizing: border-box; }
   .account-input { border-radius: 12px; padding: 12px 14px; font-size: 16px; height: 46px; background: #fff; box-shadow: 0 2px 8px rgba(160,120,70,0.08); }
   .vip-input { font-size: 16px; min-height: 44px; padding: 12px; box-sizing: border-box; }
@@ -618,6 +620,8 @@ function onReplaceWith(newKey) {
 .skin-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .skin-chip { font-size: 13px; padding: 7px 14px; border-radius: 999px; background: #f4ece3; color: #6b5d4e; border: 1px solid transparent; }
 .skin-chip.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); font-weight: 700; }
+.skin-chip.vip { border: 1px dashed #e0b64f; background: #fff9ec; color: #a97818; }
+.skin-chip.locked { opacity: 0.6; }
 .switch { width: 46px; height: 26px; border-radius: 999px; background: #ddd; position: relative; transition: background .2s; flex-shrink: 0; }
 .switch .knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
 .switch.on { background: var(--accent); }

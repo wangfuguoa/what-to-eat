@@ -14,7 +14,7 @@ export const RECOMMEND_MODES = [
   { key: 'flip', label: '翻牌', icon: '🎴' },
   { key: 'dice', label: '掷骰', icon: '🎲', vipOnly: true },
   { key: 'capsule', label: '转蛋', icon: '🎁', vipOnly: true },
-  { key: 'dart', label: '飞镖', icon: '🎯' }
+  { key: 'dart', label: '飞镖', icon: '🎯', vipOnly: true }
 ]
 export const WHEEL_COLORS = ['#ff6b6b', '#feca57', '#1dd1a1', '#54a0ff', '#5f27cd', '#ff9f43', '#f368e0', '#00d2d3', '#ee5253', '#10ac84', '#48dbfb', '#ffd32a']
 
@@ -23,29 +23,38 @@ export const MODE_SKINS = {
   wheel: [
     { key: 'classic', label: '经典', colors: ['#ff6b6b', '#feca57', '#1dd1a1', '#54a0ff', '#5f27cd', '#ff9f43', '#f368e0', '#00d2d3', '#ee5253', '#10ac84', '#48dbfb', '#ffd32a'] },
     { key: 'neon', label: '霓虹', colors: ['#8ec5fc', '#e0c3fc', '#fbc2eb', '#a1c4fd', '#c2e9fb', '#d4fc79', '#96e6a1', '#fddb92', '#f7a7c4', '#c2e9fb', '#a1c4fd', '#8ec5fc'] },
-    { key: 'forest', label: '森林', colors: ['#2f4858', '#33658a', '#86bbd8', '#f6ae2d', '#f26419', '#4f6d7a', '#6d9f71', '#c8d5b9', '#a89968', '#8cb369', '#5b8e7d', '#bc4b51'] }
+    { key: 'forest', label: '森林', colors: ['#2f4858', '#33658a', '#86bbd8', '#f6ae2d', '#f26419', '#4f6d7a', '#6d9f71', '#c8d5b9', '#a89968', '#8cb369', '#5b8e7d', '#bc4b51'] },
+    { key: 'gold', label: '鎏金', vipOnly: true, colors: ['#0f172a', '#b8860b', '#d4af37', '#ffd700', '#8a5a00', '#3b2f2f', '#e0b64f', '#1e1e2f', '#c9a227', '#6b4423', '#f5d76e', '#2c1e05'] }
   ],
   draw: [
     { key: 'classic', label: '竹签', bg: '#f6d9a0', ink: '#4a2f1b' },
     { key: 'neon', label: '霓虹', bg: '#2c3e50', ink: '#f8f9fa' },
-    { key: 'pink', label: '桃花', bg: '#ffe3ec', ink: '#a83a5b' }
+    { key: 'pink', label: '桃花', bg: '#ffe3ec', ink: '#a83a5b' },
+    { key: 'jade', label: '翡翠', vipOnly: true, bg: '#e8f5e9', ink: '#0f5132' }
   ],
   flip: [
     { key: 'classic', label: '经典', backBg: '#2d2a26', backFg: '#fff' },
     { key: 'neon', label: '霓虹', backBg: '#1b2a4a', backFg: '#ffd766' },
-    { key: 'pink', label: '桃花', backBg: '#ff9db8', backFg: '#7a1f3d' }
+    { key: 'pink', label: '桃花', backBg: '#ff9db8', backFg: '#7a1f3d' },
+    { key: 'moon', label: '月光', vipOnly: true, backBg: '#1a1a2e', backFg: '#f5d76e' }
   ],
   dice: [
     { key: 'classic', label: '白骰', bg: '#fff', fg: '#333' },
-    { key: 'neon', label: '霓虹', bg: '#1b2a4a', fg: '#ffd766' }
+    { key: 'neon', label: '霓虹', bg: '#1b2a4a', fg: '#ffd766' },
+    { key: 'lucky', label: '鸿运', bg: '#c0392b', fg: '#ffd700' },
+    { key: 'crystal', label: '水晶', vipOnly: true, bg: '#5b2a86', fg: '#e0c3fc' }
   ],
   capsule: [
     { key: 'classic', label: '粉蛋', bg: '#ff8fb1', ball: '#ffd54f' },
-    { key: 'neon', label: '蓝蛋', bg: '#4a6cf7', ball: '#7bd3ff' }
+    { key: 'neon', label: '蓝蛋', bg: '#4a6cf7', ball: '#7bd3ff' },
+    { key: 'mint', label: '薄荷', bg: '#10ac84', ball: '#feca57' },
+    { key: 'gold', label: '鎏金', vipOnly: true, bg: '#b8860b', ball: '#fff8dc' }
   ],
   dart: [
     { key: 'classic', label: '红黑', bg: '#c0392b', ring: '#f1c40f' },
-    { key: 'neon', label: '蓝紫', bg: '#2c3e50', ring: '#8e44ad' }
+    { key: 'neon', label: '蓝紫', bg: '#2c3e50', ring: '#8e44ad' },
+    { key: 'lucky', label: '鸿运', bg: '#7a4a00', ring: '#ffd700' },
+    { key: 'rose', label: '玫瑰', vipOnly: true, bg: '#880e4f', ring: '#f48fb1' }
   ]
 }
 
@@ -548,7 +557,9 @@ export function resetAllData() {
 
 export function setModeSkin(mode, skinKey) {
   const skins = MODE_SKINS[mode] || []
-  if (!skins.some(s => s.key === skinKey)) return
+  const s = skins.find(x => x.key === skinKey)
+  if (!s) return
+  if (s.vipOnly && !isVip()) return
   state.modeSkins = Object.assign({}, state.modeSkins, { [mode]: skinKey })
   save(LS.modeSkins, state.modeSkins)
 }
@@ -557,7 +568,9 @@ export function getModeSkin(mode) {
   const skins = MODE_SKINS[mode] || []
   if (!skins.length) return null
   const key = state.modeSkins[mode]
-  return skins.find(s => s.key === key) || skins[0]
+  const s = skins.find(x => x.key === key)
+  if (s && s.vipOnly && !isVip()) return skins[0]
+  return s || skins[0]
 }
 
 export function slug(s) {
