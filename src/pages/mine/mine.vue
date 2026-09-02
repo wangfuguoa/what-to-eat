@@ -31,7 +31,7 @@
       <view class="vip-status" :class="{ on: isVip() }">
         <text class="vip-badge">{{ isVip() ? '已开通会员' : '未开通会员' }}</text>
         <text v-if="isVip()" class="vip-expire">{{ vipExpireText }}</text>
-        <text v-else class="muted">兑换码 / 邀请好友即可开通</text>
+        <text v-else class="muted">使用兑换码即可开通</text>
       </view>
       <view class="vip-perk-grid">
         <view v-for="p in VIP_PERKS" :key="p.t" class="vip-perk-cell">
@@ -39,13 +39,6 @@
           <text class="vip-perk-t">{{ p.t }}</text>
           <text class="vip-perk-state">{{ isVip() ? '✓' : '🔒' }}</text>
         </view>
-      </view>
-      <view v-if="!isVip()" class="vip-cta">
-        <view class="vip-cta-info">
-          <text class="vip-cta-t">开通即享</text>
-          <text class="vip-cta-d">高级玩法 · 皮肤 · 弹窗显示控制</text>
-        </view>
-        <button class="btn primary" @tap="openVip">立即开通 →</button>
       </view>
     </view>
 
@@ -552,10 +545,6 @@ function onReplaceWith(newKey) {
 .vip-perk-ic { font-size: 18px; display: block; }
 .vip-perk-t { font-size: 10px; color: #6b5d4e; display: block; margin-top: 3px; line-height: 1.3; }
 .vip-perk-state { font-size: 11px; color: #1a9e5c; display: block; margin-top: 2px; font-weight: 700; }
-.vip-cta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; background: linear-gradient(120deg, #fff3d6, #ffe6b0); border: 1px solid #f0d6a0; border-radius: 12px; padding: 8px; }
-.vip-cta-t { font-size: 13px; font-weight: 800; color: #b8860b; display: block; }
-.vip-cta-d { font-size: 11px; color: #b0985a; display: block; margin-top: 1px; }
-.vip-cta .btn { flex-shrink: 0; }
 .theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .stat-cell { background: var(--accent-soft); border-radius: 12px; padding: 12px 4px; text-align: center; }
