@@ -41,7 +41,6 @@
         <view class="food-actions">
           <button class="btn small ghost fav" @tap="favFood(f.id)">{{ isFavorite(f.id) ? '♥' : '♡' }}</button>
           <button class="btn small ghost" @tap="markUnwanted(f.id)">不想吃</button>
-          <button class="btn small ghost danger" @tap="onDelete(f.id)">删</button>
         </view>
       </view>
     </view>
@@ -60,7 +59,6 @@
         </view>
         <view class="food-actions">
           <button class="btn small ghost fav" @tap="favFood(f.id)">{{ isFavorite(f.id) ? '♥' : '♡' }}</button>
-          <button class="btn small ghost danger" @tap="onDelete(f.id)">删</button>
         </view>
       </view>
     </view>
@@ -75,12 +73,13 @@
       <view v-for="f in list" :key="f.id" class="food-card recipe-card">
         <view class="food-main">
           <text class="food-name">{{ f.name }}</text>
-          <text class="food-meta">{{ poolMeta(f) }}{{ f.calories ? ' · ' + f.calories + ' kcal' : '' }}</text>
+          <text class="food-meta">{{ poolMeta(f) }}</text>
         </view>
         <view class="food-actions">
           <button class="btn small ghost" @tap="toggleExpand(f.id)">{{ poolState.expandId === f.id ? '收起' : '展开' }}</button>
           <button class="btn small ghost" @tap="addToRandom(f.id)">{{ isInPool(f.id) ? '✓ 随机池' : '＋随机池' }}</button>
           <button class="btn small ghost fav" @tap="favFood(f.id)">{{ isFavorite(f.id) ? '♥' : '♡' }}</button>
+          <button v-if="isCustom(f.id)" class="btn small ghost danger" @tap="onDelete(f.id)">删</button>
         </view>
         <view v-if="poolState.expandId === f.id" class="recipe-block">
           <text class="recipe-title">做法</text>
@@ -213,8 +212,10 @@ function poolMeta(f) {
   if (f.category) parts.push(f.category)
   if (f.staples && f.staples.length) parts.push(f.staples.join(' / '))
   if (f.tastes && f.tastes.length) parts.push(f.tastes.join(' '))
+  if (state.settings.showCalories && f.calories) parts.push(f.calories + ' kcal')
   return parts.join(' · ')
 }
+function isCustom(id) { return state.custom.some(f => f.id === id) }
 function favFood(id) {
   toggleFavorite(id)
   toast(isFavorite(id) ? '已收藏' : '已取消收藏')
@@ -254,8 +255,9 @@ function toggleExpand(id) {
   }
   const scienceList = computed(() => {
     const lit = savedScience.value
-    const pinned = lit.filter(x => x.pinned).sort((a, b) => (b.pinnedAt || 0) - (a.pinnedAt || 0))
-    const on = lit.filter(x => !x.pinned).sort((a, b) => (a.ts || 0) - (b.ts || 0))
+    const byId = (id) => SCIENCE_TIPS.find(s => s.id === id)
+    const pinned = lit.filter(x => x.pinned).sort((a, b) => (b.pinnedAt || 0) - (a.pinnedAt || 0)).map(x => byId(x.id)).filter(Boolean)
+    const on = lit.filter(x => !x.pinned).sort((a, b) => (a.ts || 0) - (b.ts || 0)).map(x => byId(x.id)).filter(Boolean)
     const off = SCIENCE_TIPS.filter(s => !lit.some(x => x.id === s.id))
     return [...pinned, ...on, ...off]
   })

@@ -98,17 +98,17 @@
         <view class="action-row">
           <button class="btn primary big" @tap="chooseIt">🍚 就它了</button>
           <button class="btn ghost big" @tap="addAndRespin">➕ 再转加菜</button>
-          <button class="btn ghost big" @tap="recomposeAction">🔀 转盘重组</button>
+          <button class="btn ghost big" @tap="recomposeAction">🔀 随机池重组</button>
         </view>
       </view>
 
-      <!-- 转盘限量 -->
+      <!-- 随机池限量 -->
       <view class="pool-limit">
-        <text class="pool-limit-label">转盘限量</text>
+        <text class="pool-limit-label nowrap">随机池限量</text>
         <button class="limit-btn" @tap="decLimit">−</button>
         <input class="limit-input" type="number" :value="state.poolLimit" @blur="onLimitBlur" @confirm="onLimitBlur" />
         <button class="limit-btn" @tap="incLimit">＋</button>
-        <text class="pool-limit-label">道 · 可抽 {{ dishPool.length }} 道</text>
+        <text class="pool-limit-label nowrap">道 · 可抽 {{ dishPool.length }} 道</text>
       </view>
     </view>
 
@@ -136,9 +136,12 @@
     <view class="card filter-card">
       <view class="filter-head">
         <text class="filter-title">② 吃饭目的 <text class="opt">可选</text></text>
-        <button class="spin-mini" @tap="moduleSpin('purpose')">🎲 转一转</button>
+        <view class="filter-actions">
+          <button class="fold-btn" @tap="toggleFold('purpose')">{{ expanded.purpose ? '▾ 收起' : '▸ 展开' }}</button>
+          <button class="spin-mini" @tap="moduleSpin('purpose')">🎲 转一转</button>
+        </view>
       </view>
-      <view class="chips">
+      <view v-if="expanded.purpose" class="chips">
         <view class="chip" :class="{ active: state.selPurpose.length === 0 }" @tap="clearPurpose">不选择</view>
         <view v-for="k in PURPOSE_OPTIONS" :key="'pur'+k" class="chip" :class="{ active: state.selPurpose.includes(k) }" @tap="togglePurpose(k)">{{ k }}</view>
       </view>
@@ -146,34 +149,37 @@
 
     <view class="card filter-card">
       <view class="filter-head">
-        <text class="filter-title">③ 菜系 <text class="opt">可选</text></text>
-        <button class="spin-mini" @tap="moduleSpin('cuisine')">🎲 转一转</button>
+        <text class="filter-title">③ 菜系 · 味道 <text class="opt">可选</text></text>
+        <view class="filter-actions">
+          <button class="fold-btn" @tap="toggleFold('cuisineTaste')">{{ expanded.cuisineTaste ? '▾ 收起' : '▸ 展开' }}</button>
+          <button class="spin-mini" @tap="moduleSpin('cuisineTaste')">🎲 转一转</button>
+        </view>
       </view>
-      <view class="chips">
-        <view class="chip" :class="{ active: state.selCuisine.length === 0 }" @tap="clearCuisine">不选择</view>
-        <view v-for="k in CUISINE_OPTIONS" :key="'cui'+k" class="chip" :class="{ active: state.selCuisine.includes(k) }" @tap="toggleCuisine(k)">{{ k }}</view>
+      <view v-if="expanded.cuisineTaste" class="chips-group">
+        <text class="chips-label">菜系</text>
+        <view class="chips">
+          <view class="chip" :class="{ active: state.selCuisine.length === 0 }" @tap="clearCuisine">不选择</view>
+          <view v-for="k in CUISINE_OPTIONS" :key="'cui'+k" class="chip" :class="{ active: state.selCuisine.includes(k) }" @tap="toggleCuisine(k)">{{ k }}</view>
+        </view>
+        <text class="chips-label">味道</text>
+        <view class="chips">
+          <view class="chip" :class="{ active: state.selTastes.length === 0 }" @tap="clearTastes">不选择</view>
+          <view v-for="k in TASTES" :key="'tas'+k" class="chip" :class="{ active: state.selTastes.includes(k) }" @tap="toggleTaste(k)">{{ k }}</view>
+        </view>
       </view>
     </view>
 
     <view class="card filter-card">
       <view class="filter-head">
         <text class="filter-title">④ 主食搭配 <text class="opt">可选</text></text>
-        <button class="spin-mini" @tap="moduleSpin('staple')">🎲 转一转</button>
+        <view class="filter-actions">
+          <button class="fold-btn" @tap="toggleFold('staple')">{{ expanded.staple ? '▾ 收起' : '▸ 展开' }}</button>
+          <button class="spin-mini" @tap="moduleSpin('staple')">🎲 转一转</button>
+        </view>
       </view>
-      <view class="chips">
+      <view v-if="expanded.staple" class="chips">
         <view class="chip" :class="{ active: state.selStaples.length === 0 }" @tap="clearStaples">不选择</view>
         <view v-for="k in STAPLES" :key="'sta'+k" class="chip" :class="{ active: state.selStaples.includes(k) }" @tap="toggleStaple(k)">{{ k }}</view>
-      </view>
-    </view>
-
-    <view class="card filter-card">
-      <view class="filter-head">
-        <text class="filter-title">⑤ 味道 <text class="opt">可选</text></text>
-        <button class="spin-mini" @tap="moduleSpin('taste')">🎲 转一转</button>
-      </view>
-      <view class="chips">
-        <view class="chip" :class="{ active: state.selTastes.length === 0 }" @tap="clearTastes">不选择</view>
-        <view v-for="k in TASTES" :key="'tas'+k" class="chip" :class="{ active: state.selTastes.includes(k) }" @tap="toggleTaste(k)">{{ k }}</view>
       </view>
     </view>
 
@@ -201,11 +207,10 @@
       </view>
     </view>
 
-    <!-- 菜谱弹窗 -->
-    <!-- 最近/标记周期 -->
+    <!-- 周期记忆 -->
     <view class="card">
       <view class="section-head">
-        <text class="card-title">⏱️ 最近/标记周期</text>
+        <text class="card-title">🧠 周期记忆</text>
       </view>
       <view class="field-row">
         <input class="picker-input" type="number" v-model="memValueStr" placeholder="3" />
@@ -213,8 +218,25 @@
           <view class="picker">{{ memUnit }}</view>
         </picker>
       </view>
-      <text class="hint">「最近吃过」与标记排除的保存时长，记住不常有的菜可以设短一点。</text>
+      <text class="hint">「最近吃过」与「不想吃」的保存周期，到期自动解除。</text>
       <button class="btn primary" @tap="saveMem">保存周期</button>
+    </view>
+
+    <!-- 最近吃过 -->
+    <view class="card">
+      <view class="section-head">
+        <text class="card-title">🕘 最近吃过</text>
+        <button class="btn small ghost" @tap="confirmClearHistory">清空</button>
+      </view>
+      <view v-if="!recentEaten.length" class="empty">还没有记录，点「就它了」会记到这里</view>
+      <view v-if="!recentEaten.length && state.history.length" class="empty">该周期内暂无记录（可调大周期）</view>
+      <view v-for="h in recentEaten" :key="'rh'+h.id+h.ts" class="mark-row">
+        <view class="mark-dot"></view>
+        <view class="mark-info">
+          <text class="mark-name">{{ h.name }}</text>
+          <text class="mark-small">{{ formatTime(h.ts) }}</text>
+        </view>
+      </view>
     </view>
 
     <view v-if="recipeVisible" class="overlay" @tap.self="closeRecipe">
@@ -308,7 +330,7 @@
   </view>
 </template>
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, getCurrentInstance, nextTick } from 'vue'
+import { ref, computed, reactive, onMounted, onUnmounted, watch, getCurrentInstance, nextTick } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import {
   state, STAPLES, TASTES, HOW_OPTIONS, PURPOSE_OPTIONS,
@@ -318,7 +340,7 @@ import {
   setPoolLimit, setRecommendMode, pickRecommend, resultFromAngle,
   addToMenu, removeFromMenu, recomposeDishPool, resetDishPool, markFood,
   addHistory, isVip, findFood, addDailyRecord, clearDailyRecords,
-  removeDailyRecord, todayCalories, isModeVip, saveSettings, poolState
+  removeDailyRecord, todayCalories, isModeVip, saveSettings, poolState, clearHistory
 } from '@/store/food'
 import { saveToCloud, refreshVip } from '@/utils/sync'
 import { callApi } from '@/utils/cloudbase'
@@ -368,6 +390,15 @@ const dailyCalories = computed(() => todayCalories.value)
 const homeModes = computed(() => state.settings.homeModes || ['wheel', 'draw', 'flip'])
 function modeByKey(k) { return RECOMMEND_MODES.find(m => m.key === k) }
 const skin = computed(() => getModeSkin(mode.value))
+const MS = { 天: 86400000, 周: 7 * 86400000, 月: 30 * 86400000 }
+const expanded = reactive({ purpose: false, cuisineTaste: false, staple: false })
+function toggleFold(k) { expanded[k] = !expanded[k] }
+const recentEaten = computed(() => {
+  const ms = MS[state.settings.memoryUnit || '天'] || 86400000
+  const windowMs = (state.settings.memoryValue || 3) * ms
+  const cutoff = Date.now() - windowMs
+  return state.history.filter(h => h.ts >= cutoff)
+})
 const pairingText = ref('')
 const healthTipText = ref('')
 
@@ -571,6 +602,12 @@ function switchMode(k) {
 }
 
 function moduleSpin(kind) {
+  if (kind === 'cuisineTaste') {
+    const pickCuisine = Math.random() < 0.5
+    const v = pickCuisine ? spinModule('cuisine') : spinModule('taste')
+    if (v) toast(pickCuisine ? '已为你选菜系：' + v : '已为你选味道：' + v)
+    return
+  }
   const v = spinModule(kind)
   if (v) toast('已为你选择：' + v)
 }
@@ -720,14 +757,32 @@ function clearDaily() {
     const v = Math.max(1, parseInt(memValueStr.value, 10) || 3)
     memValueStr.value = String(v)
     saveSettings({ memoryValue: v, memoryUnit: memUnit.value })
-    toast('最近/标记周期已保存')
+    toast('周期记忆已保存')
     saveToCloud()
   }
   function dailyMeta(d) {
   let s = ''
   if (d.nutrition) s += d.nutrition
   if (state.settings.showCalories && d.calories) s += (s ? ' · ' : '') + d.calories + ' kcal'
+  if (!s && state.settings.showCalories) s = '热量暂缺'
   return s
+}
+
+function confirmClearHistory() {
+  uni.showModal({
+    title: '提示', content: '确定清空「最近吃过」记录吗？',
+    success: (res) => { if (res.confirm) { clearHistory(); toast('已清空'); saveToCloud() } }
+  })
+}
+
+function formatTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return d.getFullYear() + '-' + mm + '-' + dd + ' ' + hh + ':' + mi
 }
 
 function removeMenu(id) {
@@ -772,6 +827,7 @@ onUnmounted(() => { clearHeroAnim() })
 onShow(() => {
   if ((state.settings.welcomeCycle || 'daily') === 'each') welcomeAutoShown = false
   showWelcome()
+  if (mode.value === 'wheel' && !state.recommendSpinning) nextTick(drawWheel)
 })
 
 onMounted(() => {
@@ -793,6 +849,7 @@ watch(dishPool, () => {
   else if (mode.value === 'flip') generateFlips()
 })
 watch(mode, (m) => { if (m === 'wheel') nextTick(drawWheel) })
+watch(() => state.theme, () => { if (mode.value === 'wheel') nextTick(drawWheel) })
 watch(() => state.settings.homeModes, (modes) => {
   const list = modes && modes.length ? modes : ['wheel', 'draw', 'flip']
   if (!list.includes(mode.value)) {
@@ -883,7 +940,11 @@ watch(recommendResult, (val) => {
 .req { font-size: 10px; color: #fff; background: var(--accent); border-radius: 999px; padding: 2px 6px; margin-left: 6px; vertical-align: middle; }
 .opt { font-size: 10px; color: #d48806; background: #fff3d6; border-radius: 999px; padding: 2px 6px; margin-left: 6px; vertical-align: middle; }
 .spin-mini { margin: 0 0 0 auto; flex-shrink: 0; border: 1px solid #ffd7c2; background: #fff; color: var(--accent); font-size: 12px; border-radius: 999px; padding: 6px 11px; line-height: 1; }
+.filter-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
+.fold-btn { border: 1px solid #e6d8c8; background: #f7f1ea; color: #8a7b6c; font-size: 12px; border-radius: 999px; padding: 6px 11px; line-height: 1; flex-shrink: 0; white-space: nowrap; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips-group { margin-top: 2px; }
+.chips-label { font-size: 12px; color: #b0a49a; display: block; margin: 10px 0 6px; font-weight: 700; }
 .chip { border: 1px solid #e6d8c8; background: #fff; border-radius: 999px; padding: 7px 14px; font-size: 13px; color: #6b5d4e; }
 .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
 .hint { font-size: 12px; color: #b0a49a; margin-top: 8px; display: block; }
@@ -895,6 +956,11 @@ watch(recommendResult, (val) => {
 .card-title { font-size: 16px; font-weight: 800; color: #2d2a26; }
 .muted { font-size: 12px; color: #b0a49a; }
 .empty { color: #b0a49a; padding: 14px 0; text-align: center; font-size: 13px; }
+.mark-row { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #f4ece3; }
+.mark-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); margin-right: 10px; flex-shrink: 0; }
+.mark-info { flex: 1; }
+.mark-name { font-size: 14px; font-weight: 600; color: #2d2a26; display: block; }
+.mark-small { font-size: 12px; color: #9a8f83; display: block; }
 .menu-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f4ece3; }
 .menu-main { flex: 1; padding-right: 8px; }
 .food-name { font-size: 15px; font-weight: 700; color: #2d2a26; display: block; }

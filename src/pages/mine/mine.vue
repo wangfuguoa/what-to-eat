@@ -32,18 +32,27 @@
       </view>
     </view>
 
-    <view class="card">
-      <text class="card-title">主题样式</text>
+    <view class="card group">
+      <view class="group-head" @tap="toggleGroup('appearance')">
+        <text class="group-title">🎨 外观与主题</text>
+        <text class="group-arrow">{{ openGroup === 'appearance' ? '▴' : '▾' }}</text>
+      </view>
+      <view v-if="openGroup === 'appearance'" class="group-body">
       <view class="theme-grid">
         <view v-for="t in THEMES" :key="t.key" class="theme-item" :class="{ active: state.theme === t.key }" @tap="setTheme(t.key)">
           <view class="theme-swatch" :style="{ background: t.accent }"></view>
           <text class="theme-label">{{ t.label }}</text>
         </view>
       </view>
+      </view>
     </view>
 
-    <view class="card">
-      <text class="card-title">个性化</text>
+    <view class="card group">
+      <view class="group-head" @tap="toggleGroup('personal')">
+        <text class="group-title">🧩 个性化定制</text>
+        <text class="group-arrow">{{ openGroup === 'personal' ? '▴' : '▾' }}</text>
+      </view>
+      <view v-if="openGroup === 'personal'" class="group-body">
 
       <view class="opt-group-title">首页弹窗</view>
       <view class="opt-row" @tap="setS('showWelcomePopup', !state.settings.showWelcomePopup)">
@@ -93,37 +102,15 @@
           <view v-for="s in (MODE_SKINS[m.key] || [])" :key="s.key" class="skin-chip" :class="{ active: skinActive(m.key, s.key) }" @tap="pickSkin(m.key, s.key)">{{ s.label }}</view>
         </view>
       </view>
-    </view>
-
-    <view class="card">
-      <text class="card-title">⏱️ 最近/标记周期</text>
-      <view class="field-row">
-        <input class="picker-input" type="number" v-model="settingsForm.memoryValueStr" placeholder="3" />
-        <picker mode="selector" :range="units" @change="onUnitChange">
-          <view class="picker">{{ settingsForm.memoryUnit }}</view>
-        </picker>
-      </view>
-      <text class="hint">「最近吃过」按这个时长显示，标记过的菜也会在该时长内被排除。</text>
-      <button class="btn primary" @tap="submitSettings">保存设置</button>
-    </view>
-
-    <view class="card">
-      <view class="section-head">
-        <text class="card-title">🕘 最近吃过</text>
-        <button class="btn small ghost" @tap="confirmClearHistory">清空</button>
-      </view>
-      <view v-if="!state.history.length" class="empty">还没有记录</view>
-      <view v-if="!shownHistory.length && state.history.length" class="empty">该周期内暂无记录（可调大周期）</view>
-      <view v-for="h in shownHistory" :key="'mh' + h.id + h.ts" class="mark-row">
-        <view class="mark-dot"></view>
-        <view class="mark-info">
-          <text class="mark-name">{{ h.name }}</text>
-          <text class="mark-small">{{ formatTime(h.ts) }}</text>
-        </view>
       </view>
     </view>
 
-    <view class="card">
+    <view class="card group">
+      <view class="group-head" @tap="toggleGroup('data')">
+        <text class="group-title">🍽️ 数据记录</text>
+        <text class="group-arrow">{{ openGroup === 'data' ? '▴' : '▾' }}</text>
+      </view>
+      <view v-if="openGroup === 'data'" class="group-body">
       <view class="section-head">
         <text class="card-title">🍽️ 吃过记录</text>
         <button class="btn small ghost" @tap="confirmClearEaten">清空计数</button>
@@ -135,6 +122,7 @@
           <text class="mark-name">{{ e.name }}</text>
           <text class="mark-small">共吃过 {{ e.count }} 次</text>
         </view>
+      </view>
       </view>
     </view>
 
@@ -185,13 +173,13 @@
   </view>
 </template>
 <script setup>
-  import { ref, computed, onMounted } from 'vue'
-  import { state, THEMES, setTheme, isVip, clearHistory, clearEatenCounts, saveSettings, allFoods, RECOMMEND_MODES, isModeVip, replaceHomeMode, setPopupChip, VIP_POPUP_CHIPS, MODE_SKINS, getModeSkin, setModeSkin } from '@/store/food'
+  import { ref, computed } from 'vue'
+  import { state, THEMES, setTheme, isVip, clearEatenCounts, saveSettings, allFoods, RECOMMEND_MODES, isModeVip, replaceHomeMode, setPopupChip, VIP_POPUP_CHIPS, MODE_SKINS, getModeSkin, setModeSkin } from '@/store/food'
   import { saveToCloud, refreshVip, loginAccount, registerAccount, logoutAccount } from '@/utils/sync'
   import { callApi } from '@/utils/cloudbase'
 
-const units = ['天', '周', '月']
-const settingsForm = ref({ memoryValue: 3, memoryUnit: '天', memoryValueStr: '3' })
+const openGroup = ref('')
+function toggleGroup(k) { openGroup.value = openGroup.value === k ? '' : k }
 const vipVisible = ref(false)
 const vipCode = ref('')
 const vipBusy = ref(false)
@@ -215,13 +203,6 @@ const vipExpireText = computed(() => {
   return '到期 ' + d.getFullYear() + '-' + mm + '-' + dd
 })
 
-const MS = { 天: 86400000, 周: 7 * 86400000, 月: 30 * 86400000 }
-const shownHistory = computed(() => {
-  const ms = MS[state.settings.memoryUnit || '天'] || 86400000
-  const windowMs = (state.settings.memoryValue || 3) * ms
-  const cutoff = Date.now() - windowMs
-  return state.history.filter(h => h.ts >= cutoff)
-})
 const eatenList = computed(() => {
   const map = {}
   for (const f of allFoods()) map[f.id] = f
@@ -239,16 +220,6 @@ function toast(msg) {
   toastTimer = setTimeout(() => (toastShow.value = false), 2200)
 }
 
-function onUnitChange(e) {
-  settingsForm.value.memoryUnit = units[Number(e.detail.value)]
-}
-function submitSettings() {
-  const v = Math.max(1, parseInt(settingsForm.value.memoryValueStr, 10) || 3)
-  settingsForm.value.memoryValueStr = String(v)
-  saveSettings({ memoryValue: v, memoryUnit: settingsForm.value.memoryUnit })
-  saveToCloud()
-  toast('设置已保存')
-}
 function setS(k, v) {
   const s2 = Object.assign({}, state.settings)
   s2[k] = !!v
@@ -318,21 +289,6 @@ function onReplaceWith(newKey) {
     }
   })
 }
-function confirmClearHistory() {
-  uni.showModal({
-    title: '提示', content: '确定清空历史记录吗？',
-    success: (res) => { if (res.confirm) { clearHistory(); toast('已清空历史'); saveToCloud() } }
-  })
-}
-function formatTime(ts) {
-  if (!ts) return ''
-  const d = new Date(ts)
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mi = String(d.getMinutes()).padStart(2, '0')
-  return d.getFullYear() + '-' + mm + '-' + dd + ' ' + hh + ':' + mi
-}
   function openVip() { vipVisible.value = true; vipFocus.value = true }
   function closeVip() { vipVisible.value = false; vipFocus.value = false }
   function openAccount() { accountVisible.value = true; accUsername.value = ''; accPassword.value = ''; accPassword2.value = ''; accountMode.value = 'login' }
@@ -385,9 +341,6 @@ function formatTime(ts) {
   }
 }
 
-onMounted(() => {
-  settingsForm.value = { memoryValue: state.settings.memoryValue, memoryUnit: state.settings.memoryUnit, memoryValueStr: String(state.settings.memoryValue) }
-})
 </script>
 <style>
 .page { min-height: 100vh; background: var(--bg); padding: 16px 14px 40px; box-sizing: border-box; }
@@ -398,6 +351,12 @@ onMounted(() => {
 .brand-sub { font-size: 12px; color: #9a8f83; display: block; }
 .card { background: #fff; border-radius: 18px; padding: 16px; margin-bottom: 14px; box-shadow: 0 4px 18px rgba(160,120,70,0.06); }
 .card-title { font-size: 16px; font-weight: 800; color: #2d2a26; display: block; margin-bottom: 12px; }
+.group { padding: 0; overflow: hidden; }
+.group-head { display: flex; align-items: center; justify-content: space-between; padding: 15px 16px; }
+.group-title { font-size: 16px; font-weight: 800; color: #2d2a26; }
+.group-arrow { font-size: 14px; color: #9a8f83; }
+.group-body { padding: 0 16px 16px; border-top: 1px solid #f4ece3; }
+.group-body .card-title { margin-top: 14px; }
 .profile-card { display: flex; align-items: center; gap: 14px; }
 .avatar { width: 58px; height: 58px; border-radius: 50%; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; font-size: 28px; }
 .nickname { font-size: 18px; font-weight: 800; color: #2d2a26; display: block; }
