@@ -43,7 +43,7 @@ function putKey(s3key) {
   return new Promise((resolve, reject) => {
     const full = path.join(root, s3key.split('/').join(path.sep))
     const ext = path.extname(s3key).toLowerCase()
-    const cache = s3key.endsWith('.html') ? 'no-cache' : 'public, max-age=31536000, immutable'
+    const cache = s3key.endsWith('.html') ? 'no-store, no-cache, must-revalidate' : 'public, max-age=31536000, immutable'
     const opt = {
       Bucket, Region, Key: s3key,
       Body: fs.createReadStream(full),
