@@ -64,9 +64,13 @@ export async function logoutAccount() {
 }
 
 function mergeFromCloud(data) {
-  // 服务端判定为匿名（账号 token 失效/登出），同步清除本地登录态
-  if (data.ownerType === 'anon' && state.account.loggedIn) {
-    clearAccount()
+  // 账号身份：确认登录 + 以服务端为准恢复 VIP
+  if (data.ownerType === 'account') {
+    if (!state.account.loggedIn) setAccount({ loggedIn: true, username: state.account.username || '' })
+    if (data.vip && typeof data.vip === 'object') setVip(data.vip)
+  } else if (!state.account.loggedIn && data.vip && data.vip.status === 'none' && !state.vip) {
+    // 匿名/临时读取：不登出、不清 VIP，避免一次失败丢失已兑换会员
+    setVip({ status: 'none', expireAt: 0, plan: null })
   }
   // 仅当本地为空时用云端填充，避免覆盖用户刚改的数据
   if (!state.custom || state.custom.length === 0) {
@@ -93,8 +97,6 @@ function mergeFromCloud(data) {
   if (!state.menu || state.menu.length === 0) {
     if (Array.isArray(data.menu) && data.menu.length) state.menu = data.menu
   }
-  // VIP 以服务端为准
-  if (data.vip && typeof data.vip === 'object') setVip(data.vip)
 }
 
 export async function saveToCloud() {
@@ -117,7 +119,10 @@ export function cloudSyncMarks() { saveToCloud() }
 // 供页面在兑换/刷新后拉取最新 VIP 状态（服务端权威）
 export async function refreshVip() {
   const data = await callApi('getUserData')
-  if (data && data.vip && typeof data.vip === 'object') setVip(data.vip)
+  if (data && data.vip && typeof data.vip === 'object') {
+    // 仅账号身份或本地尚无会员时采用云端值，避免临时匿名响应清掉本地 VIP
+    if (data.ownerType === 'account' || !state.vip) setVip(data.vip)
+  }
   return state.vip
 }
 
