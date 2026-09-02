@@ -21,4 +21,9 @@ export default {
   --bg: #FFF6EE;
 }
 page { background: var(--bg); }
+/* 底部 TabBar 分界美化（H5） */
+uni-tabbar {
+  border-top: 1px solid #f0e6db;
+  box-shadow: 0 -4px 16px rgba(160, 120, 70, 0.08);
+}
 </style>

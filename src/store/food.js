@@ -1,5 +1,5 @@
 import { reactive, computed } from 'vue'
-import { BUILTIN_FOODS, FOOD_META } from '@/data/foods'
+import { BUILTIN_FOODS, FOOD_META, NUTRITION_META } from '@/data/foods'
 
 export const STAPLES = ['米饭', '面条', '馒头', '包子', '饺子', '饼', '粥', '粉', '无']
 export const TASTES = ['酸', '甜', '苦', '辣', '咸', '鲜', '香', '麻', '清淡']
@@ -11,7 +11,9 @@ export const CATEGORY_OPTIONS = ['肉菜', '素菜', '主食', '汤羹', '小吃
 export const RECOMMEND_MODES = [
   { key: 'wheel', label: '转盘', icon: '🎡' },
   { key: 'draw', label: '抽签', icon: '🥢' },
-  { key: 'flip', label: '翻牌', icon: '🎴' }
+  { key: 'flip', label: '翻牌', icon: '🎴' },
+  { key: 'dice', label: '掷骰', icon: '🎲', vipOnly: true },
+  { key: 'capsule', label: '转蛋', icon: '🎁', vipOnly: true }
 ]
 export const WHEEL_COLORS = ['#ff6b6b', '#feca57', '#1dd1a1', '#54a0ff', '#5f27cd', '#ff9f43', '#f368e0', '#00d2d3', '#ee5253', '#10ac84', '#48dbfb', '#ffd32a']
 
@@ -55,7 +57,8 @@ export const state = reactive({
   favorites: [],
   history: [],
   vip: null,
-  settings: { memoryValue: 3, memoryUnit: '天', includeMarked: false },
+  settings: { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showFortune: true, welcomePopupClosed: false, showCalories: true, vipPopupExtra: false },
+  dailyRecords: [],
   howToEat: '自己做',
   selPurpose: [],
   selCuisine: [],
@@ -186,7 +189,8 @@ export function initStore() {
   state.hidden = load(LS.hidden, [])
   state.marks = load(LS.marks, {})
   const s = load(LS.settings, {})
-  state.settings = Object.assign({ memoryValue: 3, memoryUnit: '天', includeMarked: false }, s)
+  state.settings = Object.assign({ memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showFortune: true, welcomePopupClosed: false, showCalories: true, vipPopupExtra: false }, s)
+  state.dailyRecords = load(LS.daily, [])
   state.favorites = load(LS.favorites, [])
   state.history = load(LS.history, [])
   state.vip = load(LS.vip, null)
@@ -514,3 +518,39 @@ export function setTastes(arr) {
   resetDishPool()
 }
 
+export function addDailyRecord(food) {
+  if (!food) return
+  const entry = { id: food.id, name: food.name, calories: food.calories || 0, nutrition: food.nutrition || '', ts: Date.now() }
+  const idx = state.dailyRecords.findIndex(d => d.id === food.id)
+  if (idx >= 0) state.dailyRecords.splice(idx, 1)
+  state.dailyRecords.unshift(entry)
+  if (state.dailyRecords.length > 30) state.dailyRecords.length = 30
+  save(LS.daily, state.dailyRecords)
+}
+
+export function clearDailyRecords() {
+  state.dailyRecords = []
+  save(LS.daily, state.dailyRecords)
+}
+
+export const todayCalories = computed(() => state.dailyRecords.reduce((sum, d) => sum + (d.calories || 0), 0))
+
+export function isModeVip(modeKey) {
+  const m = RECOMMEND_MODES.find(x => x.key === modeKey)
+  return !!(m && m.vipOnly)
+}
+export function removeDailyRecord(id) {
+  state.dailyRecords = state.dailyRecords.filter(d => d.id !== id)
+  save(LS.daily, state.dailyRecords)
+}
+export const poolState = reactive({ tab: 'rand', category: '', search: '', expandId: '' })
+export function addToPool(id) {
+  const i = state.hidden.indexOf(id)
+  if (i >= 0) state.hidden.splice(i, 1)
+  save(LS.hidden, state.hidden)
+  resetDishPool()
+}
+
+export function isInPool(id) {
+  return state.hidden.indexOf(id) === -1
+}

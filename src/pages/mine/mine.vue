@@ -41,9 +41,33 @@
     </view>
 
     <view class="card">
+      <text class="card-title">个性化</text>
+      <view class="opt-row" @tap="setS('showWelcomePopup', !state.settings.showWelcomePopup)">
+        <view class="opt-info"><text class="opt-t">打开欢迎弹窗</text><text class="opt-d">进入首页自动推荐一道菜</text></view>
+        <view class="switch" :class="{ on: state.settings.showWelcomePopup }"><view class="knob"></view></view>
+      </view>
+      <view class="opt-row" @tap="setS('showFortune', !state.settings.showFortune)">
+        <view class="opt-info"><text class="opt-t">今日运势</text><text class="opt-d">在弹窗显示当日运势</text></view>
+        <view class="switch" :class="{ on: state.settings.showFortune }"><view class="knob"></view></view>
+      </view>
+      <view class="opt-row" @tap="setS('showCalories', !state.settings.showCalories)">
+        <view class="opt-info"><text class="opt-t">显示卡路里</text><text class="opt-d">菜谱与记录展示热量</text></view>
+        <view class="switch" :class="{ on: state.settings.showCalories }"><view class="knob"></view></view>
+      </view>
+      <view class="opt-row" @tap="togglePermanentClose">
+        <view class="opt-info"><text class="opt-t">永久关闭弹窗</text><text class="opt-d">不再自动弹出推荐</text></view>
+        <view class="switch" :class="{ on: state.settings.welcomePopupClosed }"><view class="knob"></view></view>
+      </view>
+      <view class="opt-row vip" @tap="toggleVipPopup">
+        <view class="opt-info"><text class="opt-t">{{ isVip() ? '弹窗附加信息' : '弹窗附加信息 🔒' }}</text><text class="opt-d">{{ isVip() ? 'VIP 解锁，展示更多推荐信息' : '开通 VIP 后可解锁' }}</text></view>
+        <view class="switch" :class="{ on: state.settings.vipPopupExtra, locked: !isVip() }"><view class="knob"></view></view>
+      </view>
+    </view>
+
+    <view class="card">
       <text class="card-title">标记记忆</text>
       <view class="field-row">
-        <input class="input small" type="number" v-model="settingsForm.memoryValue" min="1" />
+        <input class="picker-input" type="digit" v-model="settingsForm.memoryValueStr" placeholder="3" />
         <picker mode="selector" :range="units" @change="onUnitChange">
           <view class="picker">{{ settingsForm.memoryUnit }}</view>
         </picker>
@@ -95,7 +119,7 @@ import { saveToCloud, refreshVip } from '@/utils/sync'
 import { callApi } from '@/utils/cloudbase'
 
 const units = ['天', '周', '月']
-const settingsForm = ref({ memoryValue: 3, memoryUnit: '天' })
+const settingsForm = ref({ memoryValue: 3, memoryUnit: '天', memoryValueStr: '3' })
 const vipVisible = ref(false)
 const vipCode = ref('')
 const vipBusy = ref(false)
@@ -124,10 +148,22 @@ function onUnitChange(e) {
   settingsForm.value.memoryUnit = units[Number(e.detail.value)]
 }
 function submitSettings() {
-  const v = Math.max(1, parseInt(settingsForm.value.memoryValue, 10) || 3)
+  const v = Math.max(1, parseInt(settingsForm.value.memoryValueStr, 10) || 3)
+  settingsForm.value.memoryValueStr = String(v)
   saveSettings({ memoryValue: v, memoryUnit: settingsForm.value.memoryUnit })
   saveToCloud()
   toast('设置已保存')
+}
+function setS(k, v) {
+  const s2 = Object.assign({}, state.settings)
+  s2[k] = !!v
+  saveSettings(s2)
+  saveToCloud()
+}
+function togglePermanentClose() { setS('welcomePopupClosed', !state.settings.welcomePopupClosed) }
+function toggleVipPopup() {
+  if (!isVip()) { toast('开通 VIP 即可解锁此功能'); return }
+  setS('vipPopupExtra', !state.settings.vipPopupExtra)
 }
 function confirmClearHistory() {
   uni.showModal({
@@ -164,7 +200,7 @@ async function redeem() {
 }
 
 onMounted(() => {
-  settingsForm.value = { memoryValue: state.settings.memoryValue, memoryUnit: state.settings.memoryUnit }
+  settingsForm.value = { memoryValue: state.settings.memoryValue, memoryUnit: state.settings.memoryUnit, memoryValueStr: String(state.settings.memoryValue) }
 })
 </script>
 <style>
@@ -217,4 +253,15 @@ onMounted(() => {
 .vip-input { font-size: 16px; min-height: 44px; padding: 12px; box-sizing: border-box; }
 .toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: rgba(0,0,0,0.82); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity 0.2s; z-index: 200; pointer-events: none; max-width: 80vw; text-align: center; }
 .toast.show { opacity: 1; }
+.picker-input { border: 1px solid #e6d8c8; border-radius: 10px; padding: 9px 11px; font-size: 14px; width: 90px; box-sizing: border-box; color: #2d2a26; background: #fff; }
+.opt-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f4ece3; }
+.opt-info { flex: 1; padding-right: 10px; }
+.opt-t { font-size: 14px; font-weight: 600; color: #2d2a26; display: block; }
+.opt-d { font-size: 12px; color: #9a8f83; display: block; margin-top: 2px; }
+.switch { width: 46px; height: 26px; border-radius: 999px; background: #ddd; position: relative; transition: background .2s; flex-shrink: 0; }
+.switch .knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.switch.on { background: var(--accent); }
+.switch.on .knob { left: 23px; }
+.switch.locked { opacity: 0.5; }
+.opt-row.vip { background: #fff8e8; border-radius: 10px; margin-top: 6px; padding: 10px 12px; border: 1px solid #f0d6a0; }
 </style>

@@ -4,27 +4,33 @@
       <view class="brand">
         <text class="logo">📖</text>
         <view class="brand-text">
-          <text class="brand-title">菜谱随机池</text>
+          <text class="brand-title">菜谱</text>
           <text class="brand-sub">搜一搜，挑一挑</text>
         </view>
       </view>
-      <button class="tool-btn" :class="{ active: favOnly }" @tap="favOnly = !favOnly">⭐ 只看收藏</button>
+      <button class="tool-btn" @tap="openAdd">＋ 添加</button>
     </view>
 
-    <view class="search">
+    <!-- 子页切换 -->
+    <view class="sub-tabs">
+      <view v-for="t in SUB_TABS" :key="t.key" class="sub-tab" :class="{ active: poolState.tab === t.key }" @tap="setTab(t.key)">{{ t.icon }} {{ t.label }}</view>
+    </view>
+
+    <!-- 搜索 + 分类（非科普） -->
+    <view v-if="poolState.tab !== 'science'" class="search">
       <text class="search-icon">🔍</text>
-      <input class="search-input" v-model="query" placeholder="搜索菜名，如：土豆" />
+      <input class="search-input" v-model="poolState.search" placeholder="搜索菜名，如：土豆" />
+    </view>
+    <view v-if="poolState.tab !== 'science'" class="chips category">
+      <view class="chip" :class="{ active: !poolState.category }" @tap="setCategory('')">全部</view>
+      <view v-for="c in CATEGORY_OPTIONS" :key="c" class="chip" :class="{ active: poolState.category === c }" @tap="setCategory(c)">{{ c }}</view>
     </view>
 
-    <view class="chips category">
-      <view class="chip" :class="{ active: !category }" @tap="setCategory('')">全部</view>
-      <view v-for="c in CATEGORY_OPTIONS" :key="c" class="chip" :class="{ active: category === c }" @tap="setCategory(c)">{{ c }}</view>
-    </view>
-
-    <view class="card">
+    <!-- 随机池 -->
+    <view v-if="poolState.tab === 'rand'" class="card">
       <view class="section-head">
-        <text class="card-title">{{ list.length }} 道</text>
-        <button class="btn small ghost" @tap="openAdd">＋ 添加</button>
+        <text class="card-title">随机池</text>
+        <text class="muted">{{ list.length }} 道</text>
       </view>
       <view v-if="!list.length" class="empty">没有符合条件的菜</view>
       <view v-for="f in list" :key="f.id" class="food-card">
@@ -33,7 +39,6 @@
           <text class="food-meta">{{ poolMeta(f) }}</text>
         </view>
         <view class="food-actions">
-          <button class="btn small ghost" @tap="openRecipe(f)">🍳 菜谱</button>
           <button class="btn small ghost fav" @tap="favFood(f.id)">{{ isFavorite(f.id) ? '♥' : '♡' }}</button>
           <button class="btn small ghost" @tap="markUnwanted(f.id)">不想吃</button>
           <button class="btn small ghost danger" @tap="onDelete(f.id)">删</button>
@@ -41,24 +46,66 @@
       </view>
     </view>
 
-    <!-- 菜谱 -->
-    <view v-if="recipeVisible" class="overlay" @tap.self="closeRecipe">
-      <view class="modal">
-        <button class="modal-close" @tap="closeRecipe">×</button>
-        <text class="modal-title">{{ recipeFood && recipeFood.name }}</text>
-        <view class="tags">
-          <text v-for="t in (recipeFood.staples || [])" :key="'prs'+t" class="tag">{{ t }}</text>
-          <text v-for="t in (recipeFood.tastes || [])" :key="'prt'+t" class="tag alt">{{ t }}</text>
-          <text v-if="recipeFood" class="tag cat">{{ recipeFood.category }}</text>
+    <!-- 收藏 -->
+    <view v-else-if="poolState.tab === 'fav'" class="card">
+      <view class="section-head">
+        <text class="card-title">收藏</text>
+        <text class="muted">{{ list.length }} 道</text>
+      </view>
+      <view v-if="!list.length" class="empty">还没有收藏的菜</view>
+      <view v-for="f in list" :key="f.id" class="food-card">
+        <view class="food-main">
+          <text class="food-name">{{ f.name }}</text>
+          <text class="food-meta">{{ poolMeta(f) }}</text>
         </view>
-        <view v-if="recipeFood && recipeFood.recipe && recipeFood.recipe.length" class="recipe-block">
-          <text class="recipe-title">做法教程</text>
-          <text v-for="(s, i) in recipeFood.recipe" :key="'pst'+i" class="recipe-step">{{ i + 1 }}. {{ s }}</text>
+        <view class="food-actions">
+          <button class="btn small ghost fav" @tap="favFood(f.id)">{{ isFavorite(f.id) ? '♥' : '♡' }}</button>
+          <button class="btn small ghost danger" @tap="onDelete(f.id)">删</button>
         </view>
-        <view v-else class="guide">
-          <text>这道菜更适合「{{ recipeFood && recipeFood.how && recipeFood.how[0] }}」。<br />去搜「{{ recipeFood && recipeFood.name }} 做法」就能找到教程。</text>
+      </view>
+    </view>
+
+    <!-- 菜谱大全 -->
+    <view v-else-if="poolState.tab === 'all'" class="card">
+      <view class="section-head">
+        <text class="card-title">菜谱大全</text>
+        <text class="muted">{{ list.length }} 道</text>
+      </view>
+      <view v-if="!list.length" class="empty">没有符合条件的菜</view>
+      <view v-for="f in list" :key="f.id" class="food-card recipe-card">
+        <view class="food-main">
+          <text class="food-name">{{ f.name }}</text>
+          <text class="food-meta">{{ poolMeta(f) }}{{ f.calories ? ' · ' + f.calories + ' kcal' : '' }}</text>
         </view>
-        <button class="btn primary" @tap="closeRecipe">知道啦</button>
+        <view class="food-actions">
+          <button class="btn small ghost" @tap="toggleExpand(f.id)">{{ poolState.expandId === f.id ? '收起' : '展开' }}</button>
+          <button class="btn small ghost" @tap="addToRandom(f.id)">{{ isInPool(f.id) ? '✓ 随机池' : '＋随机池' }}</button>
+          <button class="btn small ghost fav" @tap="favFood(f.id)">{{ isFavorite(f.id) ? '♥' : '♡' }}</button>
+        </view>
+        <view v-if="poolState.expandId === f.id" class="recipe-block">
+          <text class="recipe-title">做法</text>
+          <template v-if="f.recipe && f.recipe.length">
+            <text v-for="(s, i) in f.recipe" :key="'rc'+i" class="recipe-step">{{ i + 1 }}. {{ s }}</text>
+          </template>
+          <text v-else class="recipe-step">暂无教程，去搜「{{ f.name }} 做法」。</text>
+          <view v-if="f.nutrition" class="guide"><text>营养：{{ f.nutrition }}</text></view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 科普 -->
+    <view v-else class="card science-card">
+      <view class="section-head">
+        <text class="card-title">吃饭小科普</text>
+        <text class="muted">点亮 ☆ 收藏</text>
+      </view>
+      <view v-for="s in SCIENCE_TIPS" :key="s.id" class="science-item">
+        <view class="science-head">
+          <text class="science-icon">{{ s.i }}</text>
+          <text class="science-title">{{ s.t }}</text>
+          <button class="btn small ghost fav" @tap="toggleScience(s.id)">{{ savedScience.includes(s.id) ? '★' : '☆' }}</button>
+        </view>
+        <text class="science-body">{{ s.b }}</text>
       </view>
     </view>
 
@@ -105,30 +152,46 @@
   </view>
 </template>
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import {
-  state, CATEGORY_OPTIONS, STAPLES, TASTES, visibleFoods,
-  isFavorite, toggleFavorite, markFood, unmarkFood, findFood, deleteFood, addCustomFood
+  state, poolState, CATEGORY_OPTIONS, STAPLES, TASTES,
+  currentPool, visibleFoods, isFavorite, toggleFavorite, markFood, unmarkFood,
+  findFood, deleteFood, addCustomFood, isInPool, addToPool
 } from '@/store/food'
 import { saveToCloud } from '@/utils/sync'
 
-const favOnly = ref(false)
-const query = ref('')
-const category = ref('')
-const recipeVisible = ref(false)
-const recipeFood = ref(null)
+const SUB_TABS = [
+  { key: 'rand', label: '随机池', icon: '🎲' },
+  { key: 'fav', label: '收藏', icon: '⭐' },
+  { key: 'all', label: '菜谱大全', icon: '📖' },
+  { key: 'science', label: '科普', icon: '💡' }
+]
+const SCIENCE_TIPS = [
+  { id: 's1', i: '🥗', t: '每餐搭配', b: '一餐最好有主食+蛋白质+蔬菜，比例约 1:1:2，既饱腹又营养均衡。' },
+  { id: 's2', i: '🕐', t: '细嚼慢咽', b: '每口咀嚼 20 次左右，给大脑时间接收“吃饱”信号，避免吃撑。' },
+  { id: 's3', i: '🥛', t: '饭前喝汤', b: '饭前一小碗清汤能增加饱腹感，减少主食摄入，对控卡有帮助。' },
+  { id: 's4', i: '🔥', t: '少油少盐', b: '每天盐不超过 5g，油 25-30g，重口味容易加重身体负担。' },
+  { id: 's5', i: '🧊', t: '少喝冰饮', b: '饭后或空腹大量冰饮刺激肠胃，建议常温或少喝含糖饮料。' },
+  { id: 's6', i: '🌙', t: '别熬夜吃', b: '临近睡觉进餐食物难消化，最好睡前 2-3 小时吃完晚餐。' }
+]
+
 const addVisible = ref(false)
 const form = ref({ name: '', category: '小吃', staples: [], tastes: [], note: '', recipe: '' })
 const toastShow = ref(false)
 const toastMsg = ref('')
 let toastTimer = null
 
+const savedScience = ref([])
+
 const list = computed(() => {
-  let arr = visibleFoods()
-  if (category.value) arr = arr.filter(f => f.category === category.value)
-  const q = query.value.trim()
+  let arr = []
+  if (poolState.tab === 'fav') arr = visibleFoods().filter(f => isFavorite(f.id))
+  else if (poolState.tab === 'all') arr = visibleFoods()
+  else arr = currentPool.value
+  if (poolState.category) arr = arr.filter(f => f.category === poolState.category)
+  const q = poolState.search.trim()
   if (q) arr = arr.filter(f => f.name.indexOf(q) !== -1)
-  if (favOnly.value) arr = arr.filter(f => isFavorite(f.id))
   return arr
 })
 
@@ -138,8 +201,8 @@ function toast(msg) {
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => (toastShow.value = false), 2200)
 }
-
-function setCategory(c) { category.value = c }
+function setTab(k) { poolState.tab = k; if (k !== 'all') poolState.expandId = '' }
+function setCategory(c) { poolState.category = c }
 function poolMeta(f) {
   const parts = []
   if (f.category) parts.push(f.category)
@@ -160,14 +223,33 @@ function markUnwanted(id) {
 function onDelete(id) {
   const f = findFood(id)
   uni.showModal({
-    title: '提示',
-    content: '删除「' + (f ? f.name : '') + '」？',
+    title: '提示', content: '删除「' + (f ? f.name : '') + '」？',
     success: (res) => { if (res.confirm) { deleteFood(id); toast('已删除'); saveToCloud() } }
   })
 }
-function openRecipe(f) { recipeFood.value = f; recipeVisible.value = true }
-function closeRecipe() { recipeVisible.value = false }
-
+function toggleExpand(id) {
+  poolState.expandId = poolState.expandId === id ? '' : id
+}
+function addToRandom(id) {
+  if (!isInPool(id)) { addToPool(id); toast('已加入随机池') }
+  else { toast('已在随机池中') }
+  saveToCloud()
+}
+function loadScience() {
+  try {
+    const raw = uni.getStorageSync('eatpick_science_fav')
+    savedScience.value = raw ? JSON.parse(raw) : []
+  } catch (e) { savedScience.value = [] }
+}
+function saveScience() {
+  try { uni.setStorageSync('eatpick_science_fav', JSON.stringify(savedScience.value)) } catch (e) {}
+}
+function toggleScience(id) {
+  const i = savedScience.value.indexOf(id)
+  if (i >= 0) savedScience.value.splice(i, 1)
+  else savedScience.value.push(id)
+  saveScience()
+}
 function openAdd() {
   form.value = { name: '', category: '小吃', staples: [], tastes: [], note: '', recipe: '' }
   addVisible.value = true
@@ -191,16 +273,22 @@ function saveFood() {
   saveToCloud()
 }
 
-onMounted(() => {})
+onShow(() => {
+  loadScience()
+  if (poolState.expandId) poolState.tab = 'all'
+})
 </script>
 <style>
 .page { min-height: 100vh; background: var(--bg); padding: 16px 14px 40px; box-sizing: border-box; }
-.app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .brand { display: flex; align-items: center; gap: 10px; }
-.logo { font-size: 32px; }
-.brand-title { font-size: 22px; font-weight: 800; color: #2d2a26; display: block; line-height: 1.1; }
+.logo { font-size: 30px; }
+.brand-title { font-size: 21px; font-weight: 800; color: #2d2a26; display: block; line-height: 1.1; }
 .brand-sub { font-size: 12px; color: #9a8f83; display: block; }
-.card { background: #fff; border-radius: 18px; padding: 16px; margin-bottom: 14px; box-shadow: 0 4px 18px rgba(160,120,70,0.06); }
+.tool-btn { border: 1px solid #ddd; background: #fff; padding: 8px 12px; border-radius: 10px; font-size: 13px; color: #333; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+.sub-tabs { display: flex; gap: 5px; background: #f4ece3; border-radius: 999px; padding: 4px; margin-bottom: 14px; }
+.sub-tab { flex: 1; text-align: center; font-size: 12px; color: #8a7b6c; padding: 8px 0; border-radius: 999px; }
+.sub-tab.active { background: var(--accent); color: #fff; font-weight: 700; }
 .search { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #e6d8c8; border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; }
 .search-icon { font-size: 16px; }
 .search-input { flex: 1; font-size: 14px; border: none; background: transparent; color: #2d2a26; }
@@ -208,41 +296,41 @@ onMounted(() => {})
 .chip { border: 1px solid #e6d8c8; background: #fff; border-radius: 999px; padding: 7px 14px; font-size: 13px; color: #6b5d4e; }
 .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
 .category { margin-bottom: 12px; }
+.card { background: #fff; border-radius: 18px; padding: 16px; margin-bottom: 14px; box-shadow: 0 4px 18px rgba(160,120,70,0.06); }
 .section-head { display: flex; justify-content: space-between; align-items: center; }
 .card-title { font-size: 16px; font-weight: 800; color: #2d2a26; }
 .muted { font-size: 12px; color: #b0a49a; }
 .empty { color: #b0a49a; padding: 14px 0; text-align: center; font-size: 13px; }
-.food-card { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f4ece3; }
-.food-main { flex: 1; padding-right: 8px; }
+.food-card { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f4ece3; flex-wrap: wrap; }
+.food-main { flex: 1; padding-right: 8px; min-width: 0; }
 .food-name { font-size: 15px; font-weight: 700; color: #2d2a26; display: block; }
 .food-meta { font-size: 12px; color: #9a8f83; display: block; margin-top: 2px; }
 .food-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.recipe-card { align-items: flex-start; }
+.recipe-block { width: 100%; border-top: 1px solid #f4ece3; padding-top: 10px; margin-top: 8px; }
+.recipe-title { font-size: 14px; font-weight: 700; display: block; margin-bottom: 6px; color: #2d2a26; }
+.recipe-step { font-size: 14px; color: #6b5d4e; line-height: 1.8; display: block; }
+.guide { background: #f0f8ff; border-radius: 12px; padding: 10px; font-size: 13px; color: #3b6a8a; margin-top: 10px; }
+.science-item { padding: 12px 0; border-bottom: 1px solid #f4ece3; }
+.science-head { display: flex; align-items: center; gap: 8px; }
+.science-icon { font-size: 20px; }
+.science-title { font-size: 15px; font-weight: 700; color: #2d2a26; flex: 1; }
+.science-body { font-size: 13px; color: #6b5d4e; line-height: 1.7; display: block; margin-top: 6px; }
 .btn { border-radius: 999px; font-size: 13px; padding: 8px 13px; border: none; line-height: 1; transition: transform 0.1s; }
 .btn:active { transform: scale(0.96); }
 .btn.primary { background: linear-gradient(150deg, #ff8a50, var(--accent)); color: #fff; box-shadow: 0 4px 12px rgba(255,107,53,0.3); }
 .btn.ghost { background: #fff; border: 1px solid #e6d8c8; color: #6b5d4e; }
 .btn.small { font-size: 12px; padding: 6px 10px; }
 .btn.danger { color: #e74c3c; border-color: #f3c0bb; }
-.btn.fav { color: var(--accent); border-color: #ffd7c2; }
-.tool-btn { border: 1px solid #ddd; background: #fff; padding: 8px 12px; border-radius: 10px; font-size: 13px; color: #333; }
-.tool-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.fav { color: #e85d8a; border-color: #ffd7e2; }
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
 .modal { background: #fff; border-radius: 18px; padding: 20px; width: 100%; max-width: 400px; position: relative; max-height: 85vh; overflow-y: auto; }
 .modal-close { position: absolute; top: 10px; right: 12px; background: #f0ece7; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 18px; color: #6b5d4e; line-height: 1; }
 .modal-title { font-size: 18px; font-weight: 800; display: block; margin-bottom: 12px; color: #2d2a26; }
-.tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.tag { background: #f2ece4; border-radius: 999px; padding: 3px 10px; font-size: 12px; color: #6b5d4e; }
-.tag.alt { background: var(--accent-soft); color: var(--accent); }
-.tag.cat { background: #e8f4ff; color: #2f8dd0; }
 .field { margin-bottom: 12px; }
 .field-label { font-size: 13px; color: #8a7b6c; display: block; margin-bottom: 4px; }
 .input { border: 1px solid #e6d8c8; border-radius: 10px; padding: 9px 11px; font-size: 14px; width: 100%; box-sizing: border-box; }
 .textarea { border: 1px solid #e6d8c8; border-radius: 10px; padding: 9px 11px; font-size: 14px; width: 100%; box-sizing: border-box; height: 90px; }
-.recipe-block { border-top: 1px solid #f4ece3; padding-top: 10px; margin-top: 8px; }
-.recipe-title { font-size: 14px; font-weight: 700; display: block; margin-bottom: 6px; color: #2d2a26; }
-.recipe-step { font-size: 14px; color: #6b5d4e; line-height: 1.8; display: block; }
-.guide { background: #f0f8ff; border-radius: 12px; padding: 12px; font-size: 14px; color: #3b6a8a; margin: 8px 0; }
 .toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: rgba(0,0,0,0.82); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity 0.2s; z-index: 200; pointer-events: none; max-width: 80vw; text-align: center; }
 .toast.show { opacity: 1; }
 </style>
-

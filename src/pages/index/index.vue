@@ -9,7 +9,7 @@
           <text class="brand-sub">今天别再纠结了</text>
         </view>
       </view>
-      <button class="vip-pill" :class="{ on: isVip() }" @tap="openVip">{{ isVip() ? '💎 VIP' : '💎 升级' }}</button>
+      <button class="vip-pill" :class="{ on: isVip() }" @tap="openVipSheet">{{ isVip() ? '👑 VIP' : '💎 开通VIP' }}</button>
     </view>
 
     <!-- 推荐玩法 -->
@@ -17,7 +17,7 @@
       <view class="hero-top">
         <text class="hero-title">今日推荐</text>
         <view class="mode-tabs">
-          <view v-for="m in RECOMMEND_MODES" :key="m.key" class="mode-tab" :class="{ active: mode === m.key }" @tap="switchMode(m.key)">{{ m.icon }} {{ m.label }}</view>
+          <view v-for="m in RECOMMEND_MODES" :key="m.key" class="mode-tab" :class="{ active: mode === m.key, locked: m.vipOnly && !isVip() }" @tap="switchMode(m.key)">{{ m.icon }} {{ m.label }}{{ m.vipOnly && !isVip() ? ' 🔒' : '' }}</view>
         </view>
       </view>
 
@@ -42,8 +42,20 @@
         <text class="hero-btn-sub">{{ drawing ? '抽签中…' : '点一下抽一签' }}</text>
       </view>
 
+      <!-- 掷骰 -->
+      <view v-else-if="mode === 'dice'" class="hero-dice" @tap="toggleDice">
+        <view class="dice-face" :class="{ rolling: drawing }"><text class="dice-dot">{{ diceFace }}</text></view>
+        <text class="hero-btn-sub">{{ drawing ? '掷骰中…' : '点一下掷骰子' }}</text>
+      </view>
+
+      <!-- 转蛋 -->
+      <view v-else-if="mode === 'capsule'" class="hero-capsule" @tap="toggleCapsule">
+        <view class="capsule-machine"><view class="capsule-ball" :class="{ drop: drawing }"></view></view>
+        <text class="hero-btn-sub">{{ drawing ? '掉蛋中…' : '点一下扭蛋' }}</text>
+      </view>
+
       <!-- 翻牌 -->
-      <view v-else class="hero-flip">
+      <view v-else-if="mode === 'flip'" class="hero-flip">
         <view class="flip-grid">
           <view v-for="(c, i) in flipCards" :key="i" class="flip-card" :class="{ revealed: flipRevealed === i }" @tap="flipCard(i)">
             <view class="flip-inner">
@@ -62,7 +74,7 @@
       </view>
 
       <!-- 推荐结果 -->
-      <view v-if="recommendResult" class="hero-result" :class="{ confirmed: resultConfirmed }">
+      <view v-if="recommendResult" class="hero-result" :class="{ confirmed: resultConfirmed, pop: resultPop }">
         <view class="hero-result-badge">{{ resultConfirmed ? '✅ 已入菜单' : '🎉 就吃这个' }}</view>
         <text class="hero-result-name">{{ recommendResult.name }}</text>
         <view class="tags">
@@ -74,7 +86,7 @@
         <view class="action-row">
           <button class="btn primary big" @tap="chooseIt">🍚 就它了</button>
           <button class="btn ghost big" @tap="addAndRespin">➕ 加菜</button>
-          <button class="btn ghost big" @tap="recomposeAction">🔀 重组</button>
+          <button class="btn ghost big" @tap="recomposeAction">🔀 转盘重组</button>
         </view>
       </view>
 
@@ -85,6 +97,15 @@
         <input class="limit-input" type="number" :value="state.poolLimit" @blur="onLimitBlur" @confirm="onLimitBlur" />
         <button class="limit-btn" @tap="incLimit">＋</button>
         <text class="pool-limit-label">道 · 可抽 {{ dishPool.length }} 道</text>
+      </view>
+    </view>
+
+    <!-- 筛选提示条 -->
+    <view class="hint-bar">
+      <text class="hint-bar-icon">🧭</text>
+      <view class="hint-bar-text">
+        <text class="hint-bar-title">下面按条件选，每个模块都能「转一转」</text>
+        <text class="hint-bar-sub">①怎么吃必选 · 其余可选 · 转完自动填结果</text>
       </view>
     </view>
 
@@ -163,6 +184,29 @@
       </view>
     </view>
 
+    <!-- 今日菜谱记录 -->
+    <view class="card">
+      <view class="section-head">
+        <text class="card-title">📒 今日菜谱记录</text>
+        <button class="btn small ghost" @tap="clearDaily">清空</button>
+      </view>
+      <view class="daily-summary">
+        <text v-if="state.settings.showCalories" class="daily-total">今日累计 <text class="daily-num">{{ dailyCalories }}</text> kcal</text>
+        <text v-else class="daily-total">今日吃过的菜已记录</text>
+      </view>
+      <view v-if="!state.dailyRecords.length" class="empty">抽中并加入菜单的菜会自动记录营养与卡路里</view>
+      <view v-for="d in state.dailyRecords" :key="'d'+d.id+d.ts" class="menu-row">
+        <view class="menu-main">
+          <text class="food-name">{{ d.name }}</text>
+          <text class="food-meta">{{ dailyMeta(d) }}</text>
+        </view>
+        <view class="food-actions">
+          <button class="btn small ghost" @tap="openRecipe(findFood(d.id) || d)">🍳 菜谱</button>
+          <button class="btn small ghost danger" @tap="removeDaily(d.id)">删</button>
+        </view>
+      </view>
+    </view>
+
     <!-- 菜谱弹窗 -->
     <view v-if="recipeVisible" class="overlay" @tap.self="closeRecipe">
       <view class="modal">
@@ -202,6 +246,44 @@
       </view>
     </view>
 
+    <!-- 欢迎/推荐弹窗 -->
+    <view v-if="welcomeVisible" class="overlay popup-overlay" @tap.self="closeWelcome">
+      <view class="modal welcome-modal">
+        <button class="modal-close" @tap="closeWelcome">×</button>
+        <text class="welcome-badge">✨ 今日推荐</text>
+        <text class="welcome-name">{{ welcomeFood && welcomeFood.name }}</text>
+        <view class="tags">
+          <text v-for="t in (welcomeFood.staples || [])" :key="'ws'+t" class="tag">{{ t }}</text>
+          <text v-for="t in (welcomeFood.tastes || [])" :key="'wt'+t" class="tag alt">{{ t }}</text>
+          <text v-if="welcomeFood" class="tag cat">{{ welcomeFood.category }}</text>
+        </view>
+        <text v-if="state.settings.showFortune" class="fortune">🔮 今日运势：{{ fortuneText }}</text>
+        <text v-if="state.settings.showCalories && welcomeFood && welcomeFood.calories" class="fortune-sub">{{ welcomeFood.calories }} kcal · {{ welcomeFood.nutrition }}</text>
+        <view class="welcome-actions">
+          <button class="btn primary big" @tap="startAdventure">🎡 就它了</button>
+          <button class="btn ghost" @tap="goMine">⚙️ 个性化</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- VIP 特权面板 -->
+    <view v-if="vipSheetVisible" class="overlay" @tap.self="closeVipSheet">
+      <view class="modal">
+        <button class="modal-close" @tap="closeVipSheet">×</button>
+        <text class="modal-title">👑 VIP 特权</text>
+        <view v-for="pp in VIP_PERKS" :key="pp.t" class="vip-perk">
+          <text class="vip-perk-icon">{{ pp.i }}</text>
+          <view class="vip-perk-body">
+            <text class="vip-perk-t">{{ pp.t }}</text>
+            <text class="vip-perk-d">{{ pp.d }}</text>
+          </view>
+        </view>
+        <view class="guide"><text>主题/皮肤等付费样式，请到「我的 → 个性化」购买或切换。</text></view>
+        <button class="btn primary" @tap="goMine">去「我的 · 个性化」</button>
+        <button class="btn ghost" @tap="openVip" v-if="!isVip()">兑换码开通</button>
+      </view>
+    </view>
+
     <view class="toast" :class="{ show: toastShow }">{{ toastMsg }}</view>
   </view>
 </template>
@@ -214,7 +296,8 @@ import {
   setPurpose, setCuisine, setStaples, setTastes, spinModule,
   setPoolLimit, setRecommendMode, pickRecommend, resultFromAngle,
   addToMenu, removeFromMenu, recomposeDishPool, resetDishPool, markFood,
-  addHistory, isVip, findFood
+  addHistory, isVip, findFood, addDailyRecord, clearDailyRecords,
+  removeDailyRecord, todayCalories, isModeVip, saveSettings, poolState
 } from '@/store/food'
 import { saveToCloud, refreshVip } from '@/utils/sync'
 import { callApi } from '@/utils/cloudbase'
@@ -236,6 +319,19 @@ const drawing = ref(false)
 const flipCards = ref([])
 const flipRevealed = ref(null)
 const geoHint = ref('')
+const vipSheetVisible = ref(false)
+const welcomeVisible = ref(false)
+const welcomeFood = ref(null)
+const fortuneText = ref('')
+const resultPop = ref(false)
+const diceFace = ref('🎯')
+
+const VIP_PERKS = [
+  { i: '🎁', t: '打开弹窗自动推荐', d: '进首页按定位+收藏随机推荐一道菜，可开关' },
+  { i: '🎮', t: '额外抽取玩法', d: '解锁掷骰子、扭蛋，可在首页替换玩法' },
+  { i: '🔮', t: '今日运势显示', d: '弹窗展示当日运势，可开关显示' },
+  { i: '🎨', t: '付费样式皮肤', d: '主题皮肤去「我的·个性化」购买/切换（单独付费）' }
+]
 
 let toastTimer = null
 let heroAnimId = null
@@ -244,6 +340,7 @@ const mode = computed(() => state.recommendMode)
 const heroSpinning = computed(() => state.recommendSpinning)
 const recommendResult = computed(() => state.recommendResult)
 const dishPool = computed(() => state.dishPool)
+const dailyCalories = computed(() => todayCalories.value)
 
 const howSuggest = computed(() => {
   const r = recipeFood.value
@@ -389,7 +486,34 @@ function flipCard(i) {
   resultConfirmed.value = false
 }
 
+function toggleDice() {
+  if (drawing.value) return
+  if (!dishPool.value.length) { toast('没有符合条件的菜，先放宽筛选'); return }
+  drawing.value = true
+  diceFace.value = '🎲'
+  state.recommendResult = null
+  resultConfirmed.value = false
+  setTimeout(() => {
+    drawing.value = false
+    diceFace.value = '🎯'
+    state.recommendResult = pickRecommend(dishPool.value)
+  }, 800)
+}
+
+function toggleCapsule() {
+  if (drawing.value) return
+  if (!dishPool.value.length) { toast('没有符合条件的菜，先放宽筛选'); return }
+  drawing.value = true
+  state.recommendResult = null
+  resultConfirmed.value = false
+  setTimeout(() => {
+    drawing.value = false
+    state.recommendResult = pickRecommend(dishPool.value)
+  }, 900)
+}
+
 function switchMode(k) {
+  if (k !== mode.value && isModeVip(k) && !isVip()) { toast('VIP 专属玩法，开通后可切换'); openVipSheet(); return }
   if (mode.value === k) return
   setRecommendMode(k)
   state.recommendResult = null
@@ -398,6 +522,8 @@ function switchMode(k) {
   drawing.value = false
   if (k === 'wheel') nextTick(drawWheel)
   else if (k === 'flip') generateFlips()
+  else if (k === 'dice') { diceFace.value = '🎲' }
+  else if (k === 'capsule') { drawing.value = false }
 }
 
 function moduleSpin(kind) {
@@ -410,6 +536,7 @@ function confirmDish(food) {
   const added = addToMenu(food)
   markFood(food.id, 'eaten')
   addHistory(food)
+  addDailyRecord(food)
   saveToCloud()
   toast(added ? '已加入菜单 🍚' : '这道菜已在菜单里')
 }
@@ -429,6 +556,10 @@ function autoReplay() {
     runHeroAnim()
   } else if (mode.value === 'draw') {
     toggleDraw()
+  } else if (mode.value === 'dice') {
+    toggleDice()
+  } else if (mode.value === 'capsule') {
+    toggleCapsule()
   } else {
     generateFlips()
   }
@@ -449,8 +580,11 @@ function recomposeAction() {
 
 function openRecipe(m) {
   const full = findFood(m.id) || m
-  recipeFood.value = full
-  recipeVisible.value = true
+  poolState.tab = 'all'
+  poolState.expandId = full.id
+  poolState.search = ''
+  recipeVisible.value = false
+  uni.switchTab({ url: '/pages/pool/pool' })
 }
 function closeRecipe() { recipeVisible.value = false }
 
@@ -464,6 +598,48 @@ function clearPurpose() { setPurpose([]) }
 function clearCuisine() { setCuisine([]) }
 function clearStaples() { setStaples([]) }
 function clearTastes() { setTastes([]) }
+
+function openVipSheet() { vipSheetVisible.value = true }
+function closeVipSheet() { vipSheetVisible.value = false }
+function showWelcome() {
+  if (!state.settings.showWelcomePopup || state.settings.welcomePopupClosed) return
+  welcomeFood.value = pickRecommend(state.dishPool) || null
+  fortuneText.value = getFortune()
+  setTimeout(() => { welcomeVisible.value = true }, 300)
+}
+function getFortune() {
+  const list = ['好运连连，今天想吃啥都香！','宜吃清淡，肠胃更舒服。','适合吃点辣，开胃又解腻。','多吃蛋白质，元气一整天。','今天适合尝鲜，来道新口味。','注意饮食均衡，别贪凉。']
+  return list[Math.floor(Math.random() * list.length)]
+}
+function closeWelcome() { welcomeVisible.value = false }
+function startAdventure() {
+  welcomeVisible.value = false
+  if (mode.value === 'wheel') toggleWheel()
+  else if (mode.value === 'draw') toggleDraw()
+  else if (mode.value === 'dice') toggleDice()
+  else if (mode.value === 'capsule') toggleCapsule()
+  else flipCard(0)
+}
+function goMine() {
+  welcomeVisible.value = false
+  vipSheetVisible.value = false
+  uni.switchTab({ url: '/pages/mine/mine' })
+}
+function clearDaily() {
+  uni.showModal({
+    title: '提示', content: '确定清空今日记录吗？',
+    success: (res) => {
+      if (res.confirm) { clearDailyRecords(); toast('已清空'); saveToCloud() }
+    }
+  })
+}
+function removeDaily(id) { removeDailyRecord(id); toast('已移除'); saveToCloud() }
+function dailyMeta(d) {
+  let s = ''
+  if (d.nutrition) s += d.nutrition
+  if (state.settings.showCalories && d.calories) s += (s ? ' · ' : '') + d.calories + ' kcal'
+  return s
+}
 
 function removeMenu(id) {
   removeFromMenu(id)
@@ -513,6 +689,7 @@ onMounted(() => {
   if (mode.value === 'flip') generateFlips()
   else if (mode.value === 'wheel') nextTick(drawWheel)
   tryGeo()
+  showWelcome()
 })
 
 watch(dishPool, () => {
@@ -520,6 +697,9 @@ watch(dishPool, () => {
   else if (mode.value === 'flip') generateFlips()
 })
 watch(mode, (m) => { if (m === 'wheel') nextTick(drawWheel) })
+watch(recommendResult, (val) => {
+  if (val) { resultPop.value = false; nextTick(() => { resultPop.value = true }) }
+})
 </script>
 <style>
 .page { min-height: 100vh; background: var(--bg); padding: 16px 14px 30px; box-sizing: border-box; }
@@ -528,8 +708,8 @@ watch(mode, (m) => { if (m === 'wheel') nextTick(drawWheel) })
 .logo { font-size: 32px; }
 .brand-title { font-size: 22px; font-weight: 800; color: #2d2a26; display: block; line-height: 1.1; }
 .brand-sub { font-size: 12px; color: #9a8f83; display: block; }
-.vip-pill { border: 1px solid #f0d6a0; background: #fff8e8; color: #d48806; font-size: 13px; font-weight: 700; border-radius: 999px; padding: 7px 14px; line-height: 1; }
-.vip-pill.on { border-color: #ffcf00; background: #fffbe6; color: #b8860b; }
+.vip-pill { border: none; background: linear-gradient(150deg,#ffd766,#ffb300); color: #7a4a00; font-size: 13px; font-weight: 800; border-radius: 999px; padding: 8px 16px; line-height: 1; box-shadow: 0 4px 12px rgba(255,179,0,0.35); }
+.vip-pill.on { background: linear-gradient(150deg,#ffb300,#ff8a00); color: #3b2a00; box-shadow: 0 4px 16px rgba(255,138,0,0.4); }
 
 .card { background: #fff; border-radius: 18px; padding: 16px; margin-bottom: 14px; box-shadow: 0 4px 18px rgba(160, 120, 70, 0.06); }
 
@@ -584,7 +764,7 @@ watch(mode, (m) => { if (m === 'wheel') nextTick(drawWheel) })
 .note { font-size: 13px; color: #9a8f83; text-align: center; display: block; margin: 8px 0; }
 .action-row { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
 
-.pool-limit { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; }
+.pool-limit { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 14px; padding: 6px 4px 0; }
 .pool-limit-label { font-size: 12px; color: #9a8f83; }
 .limit-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #e6d8c8; background: #fff; font-size: 18px; color: var(--accent); line-height: 1; padding: 0; }
 .limit-input { width: 54px; height: 34px; text-align: center; border: 1px solid #e6d8c8; border-radius: 8px; font-size: 15px; font-weight: 700; color: #2d2a26; }
@@ -636,10 +816,45 @@ watch(mode, (m) => { if (m === 'wheel') nextTick(drawWheel) })
 .vip-input { font-size: 16px; min-height: 44px; padding: 12px; box-sizing: border-box; }
 .toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: rgba(0,0,0,0.82); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity 0.2s; z-index: 200; pointer-events: none; max-width: 80vw; text-align: center; }
 .toast.show { opacity: 1; }
+.hint-bar { display: flex; align-items: center; gap: 10px; background: linear-gradient(120deg, var(--accent-soft), #fff); border: 1px solid #f2e4d6; border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; }
+.hint-bar-icon { font-size: 22px; }
+.hint-bar-title { font-size: 14px; font-weight: 700; color: #2d2a26; display: block; }
+.hint-bar-sub { font-size: 12px; color: #9a8f83; display: block; margin-top: 2px; }
+.mode-tab.locked { opacity: 0.55; }
+
+.hero-dice { display: flex; flex-direction: column; align-items: center; padding: 26px 0 14px; }
+.dice-face { width: 90px; height: 90px; border-radius: 18px; background: #fff; border: 2px solid #eee; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(160,120,70,0.12); }
+.dice-face.rolling { animation: diceToss .8s ease; }
+@keyframes diceToss { 0%{transform:translateY(0) rotate(0);} 30%{transform:translateY(-18px) rotate(120deg);} 60%{transform:translateY(0) rotate(240deg);} 100%{transform:translateY(0) rotate(360deg);} }
+.dice-dot { font-size: 44px; }
+
+.hero-capsule { display: flex; flex-direction: column; align-items: center; padding: 22px 0 12px; }
+.capsule-machine { width: 110px; height: 130px; background: linear-gradient(#ff8a66,#ff6b35); border-radius: 16px 16px 22px 22px; position: relative; box-shadow: 0 6px 16px rgba(255,107,53,0.2); }
+.capsule-ball { width: 54px; height: 54px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #ffe6b3, #ffb347); position: absolute; left: 50%; bottom: -12px; margin-left: -27px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+.capsule-ball.drop { animation: ballDrop .9s ease; }
+@keyframes ballDrop { 0%{transform:translateY(-70px);opacity:0;} 40%{transform:translateY(0);opacity:1;} 70%{transform:translateY(-18px);} 100%{transform:translateY(0);} }
+
+.hero-result.pop { animation: popIn .5s cubic-bezier(.2,.9,.3,1.3); }
+@keyframes popIn { 0%{transform:scale(.92);opacity:.4;} 60%{transform:scale(1.04);} 100%{transform:scale(1);opacity:1;} }
+
+.daily-summary { background: var(--accent-soft); border-radius: 12px; padding: 10px 14px; margin: 10px 0; }
+.daily-total { font-size: 14px; color: #6b5d4e; }
+.daily-num { font-size: 18px; font-weight: 800; color: var(--accent); }
+
+.fortune { display: block; text-align: center; margin: 10px 0 2px; background: #fff3d6; color: #b8860b; border-radius: 12px; padding: 10px; font-size: 14px; font-weight: 600; }
+.fortune-sub { display: block; text-align: center; font-size: 12px; color: #9a8f83; margin-bottom: 6px; }
+.welcome-modal { text-align: center; }
+.welcome-badge { font-size: 16px; font-weight: 800; color: var(--accent); display: block; }
+.welcome-name { font-size: 28px; font-weight: 800; color: #2d2a26; display: block; margin: 8px 0; }
+.welcome-actions { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
+.popup-overlay { animation: fadeIn .25s ease; }
+@keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+
+.vip-perk { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid #f4ece3; }
+.vip-perk-icon { font-size: 22px; }
+.vip-perk-t { font-size: 14px; font-weight: 700; color: #2d2a26; display: block; }
+.vip-perk-d { font-size: 12px; color: #9a8f83; display: block; margin-top: 2px; }
 </style>
-
-
-
 
 
 
