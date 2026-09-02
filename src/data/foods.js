@@ -130,6 +130,42 @@ export const BUILTIN_FOODS = [
     recipe:['肉馅加葱姜、生抽、香油搅上劲。','发酵面团包好。','平底锅油煎1分钟，加清水盖盖焖7分钟。','撒芝麻葱花。'] }
 ];
 
+// 菜谱大全扩充（默认不在随机池，点击「＋随机池」加入）
+export const EXTRA_FOODS = [
+  { id:'suancaiyu', name:'酸菜鱼', staples:['米饭'], tastes:['酸','辣','鲜'], note:'酸辣嫩滑',
+    recipe:['草鱼片成薄片，用盐、料酒、淀粉抓匀。','酸菜切段，泡椒、姜蒜炒香。','加水烧开，下鱼片煮至变白。','撒葱花、干辣椒，淋热油。'] },
+  { id:'maoxuewang', name:'毛血旺', staples:['米饭'], tastes:['辣','麻'], note:'麻辣过瘾',
+    recipe:['鸭血、毛肚切好，豆芽焯水垫底。','豆瓣酱、干辣椒炒出红油，加水烧开。','下鸭血、毛肚、午餐肉煮入味。','撒蒜末、辣椒粉、花椒，淋热油。'] },
+  { id:'xianglaxia', name:'香辣虾', staples:['米饭'], tastes:['辣','香','咸'], note:'虾肉弹嫩',
+    recipe:['虾开背去线，煎至变色。','蒜末、干辣椒、花椒爆香。','下虾翻炒，加生抽、蚝油、白糖。','撒葱段、白芝麻出锅。'] },
+  { id:'qingzhengluyu', name:'清蒸鲈鱼', staples:['米饭'], tastes:['咸','鲜'], note:'鲜嫩少油',
+    recipe:['鲈鱼改刀，垫姜片、葱段。','水开后上锅蒸8-10分钟。','倒掉鱼水，铺葱丝、淋蒸鱼豉油。','烧热油浇在葱丝上即成。'] },
+  { id:'baizhuoxia', name:'白灼虾', staples:['米饭'], tastes:['咸','鲜'], note:'原汁原味',
+    recipe:['虾洗净，水开后下锅。','加姜片、料酒煮2-3分钟捞出。','调蘸汁：生抽、醋、蒜末、辣椒。','剥壳蘸食。'] },
+  { id:'suanrongxilanhua', name:'蒜蓉西兰花', staples:['米饭'], tastes:['咸','清淡'], note:'清爽低卡',
+    recipe:['西兰花切小朵焯水。','蒜末爆香。','下西兰花大火翻炒。','加盐、蚝油调味出锅。'] },
+  { id:'hongshaoyu', name:'红烧鱼', staples:['米饭'], tastes:['咸','甜'], note:'咸甜入味',
+    recipe:['鱼洗净改刀，煎至两面金黄。','爆香葱姜蒜。','加生抽、老抽、糖、醋、水烧开。','放鱼焖10分钟，大火收汁。'] },
+  { id:'tudoudunniurou', name:'土豆炖牛肉', staples:['米饭'], tastes:['咸','香'], note:'软烂入味',
+    recipe:['牛肉切块焯水。','热油炒香葱姜、八角。','下牛肉翻炒，加生抽、老抽。','加水没过牛肉，放土豆块炖40分钟。'] },
+  { id:'huangmenji', name:'黄焖鸡', staples:['米饭'], tastes:['咸','甜'], note:'香菇嫩鸡',
+    recipe:['鸡肉剁块，焯水。','热油爆香葱姜、干辣椒。','下鸡块炒香，加生抽、老抽、糖。','放香菇、青椒，加水焖15分钟。'] },
+  { id:'gongbaoxiaqiu', name:'宫保虾球', staples:['米饭'], tastes:['甜','辣','咸'], note:'酸甜微辣',
+    recipe:['虾仁上浆，炸/煎至金黄。','调宫保汁：醋、糖、生抽、淀粉。','爆香干辣椒、花椒、葱段。','下虾球、花生，倒汁翻炒。'] },
+  { id:'duojiaoyutou', name:'剁椒鱼头', staples:['米饭'], tastes:['辣','咸','鲜'], note:'湘味浓郁',
+    recipe:['鱼头洗净，抹盐、料酒。','铺满剁椒、蒜末、姜末。','大火蒸12-15分钟。','撒葱花，淋热油。'] },
+  { id:'ganguohuacai', name:'干锅花菜', staples:['米饭'], tastes:['辣','香'], note:'焦香下饭',
+    recipe:['花菜掰小朵，干煸至微焦。','五花肉煸出油。','下蒜片、干辣椒、豆瓣酱炒香。','回锅花菜，加生抽、孜然炒匀。'] },
+  { id:'xiangguhuaji', name:'香菇滑鸡', staples:['米饭'], tastes:['咸','鲜'], note:'滑嫩清蒸',
+    recipe:['鸡肉切块，姜、生抽、淀粉腌制。','香菇切片铺底，放鸡块。','水开蒸15分钟。','撒葱花即可。'] },
+  { id:'xiangganchaorou', name:'香干炒肉', staples:['米饭'], tastes:['咸','香'], note:'豆香下饭',
+    recipe:['香干切条，青椒切丝。','瘦肉切片，用生抽、淀粉抓匀。','热油下肉片滑炒，加香干、青椒。','加盐、蚝油翻炒出锅。'] },
+  { id:'huashengdunpaigu', name:'花生炖排骨', staples:['米饭'], tastes:['咸','香'], note:'汤浓肉烂',
+    recipe:['排骨焯水，花生提前泡发。','放姜片、八角，加水炖40分钟。','加盐、生抽调味。','撒枸杞、葱花。'] },
+  { id:'liangbanmuer', name:'凉拌木耳', staples:['米饭'], tastes:['酸','辣','咸'], note:'爽口开胃',
+    recipe:['干木耳泡发，焯水过凉。','调汁：生抽、醋、辣椒油、蒜末。','倒入木耳、香菜拌匀。','冷藏片刻更爽口。'] }
+];
+
 // ===== 元数据：怎么吃 / 吃饭目的 / 菜系 / 分类 =====
 export const NUTRITION_META = {
   hongshaorou: { calories: 480, nutrition: '蛋白质22g · 脂肪38g · 碳水12g' },
@@ -197,7 +233,23 @@ export const NUTRITION_META = {
   fanqieniunan: { calories: 380, nutrition: '蛋白质28g · 脂肪18g · 碳水20g' },
   shuizhuyu: { calories: 360, nutrition: '蛋白质30g · 脂肪20g · 碳水8g' },
   baozaiifan: { calories: 480, nutrition: '蛋白质20g · 脂肪22g · 碳水56g' },
-  shengjianbao: { calories: 300, nutrition: '蛋白质14g · 脂肪14g · 碳水36g' }
+  shengjianbao: { calories: 300, nutrition: '蛋白质14g · 脂肪14g · 碳水36g' },
+  suancaiyu: { calories: 320, nutrition: '蛋白质28g · 脂肪16g · 碳水12g' },
+  maoxuewang: { calories: 380, nutrition: '蛋白质22g · 脂肪26g · 碳水14g' },
+  xianglaxia: { calories: 340, nutrition: '蛋白质28g · 脂肪20g · 碳水10g' },
+  qingzhengluyu: { calories: 220, nutrition: '蛋白质32g · 脂肪8g · 碳水3g' },
+  baizhuoxia: { calories: 180, nutrition: '蛋白质25g · 脂肪6g · 碳水2g' },
+  suanrongxilanhua: { calories: 120, nutrition: '蛋白质6g · 脂肪5g · 碳水14g' },
+  hongshaoyu: { calories: 260, nutrition: '蛋白质30g · 脂肪12g · 碳水8g' },
+  tudoudunniurou: { calories: 340, nutrition: '蛋白质26g · 脂肪16g · 碳水26g' },
+  huangmenji: { calories: 360, nutrition: '蛋白质28g · 脂肪18g · 碳水18g' },
+  gongbaoxiaqiu: { calories: 300, nutrition: '蛋白质24g · 脂肪14g · 碳水20g' },
+  duojiaoyutou: { calories: 260, nutrition: '蛋白质24g · 脂肪14g · 碳水8g' },
+  ganguohuacai: { calories: 230, nutrition: '蛋白质10g · 脂肪14g · 碳水16g' },
+  xiangguhuaji: { calories: 270, nutrition: '蛋白质24g · 脂肪12g · 碳水12g' },
+  xiangganchaorou: { calories: 250, nutrition: '蛋白质20g · 脂肪14g · 碳水10g' },
+  huashengdunpaigu: { calories: 350, nutrition: '蛋白质22g · 脂肪20g · 碳水16g' },
+  liangbanmuer: { calories: 140, nutrition: '蛋白质6g · 脂肪8g · 碳水12g' }
 };
 
 export const FOOD_META = {
@@ -266,7 +318,23 @@ export const FOOD_META = {
   fanqieniunan:   { how:["自己做"], purpose:["增肌","通用"], cuisine:"家常", category:"肉菜" },
   shuizhuyu:      { how:["自己做","外卖"], purpose:["通用"], cuisine:"川菜", category:"肉菜" },
   baozaiifan:     { how:["自己做","外出"], purpose:["通用"], cuisine:"粤菜", category:"主食" },
-  shengjianbao:   { how:["自己做","外卖"], purpose:["通用"], cuisine:"苏菜", category:"小吃" }
+  shengjianbao:   { how:["自己做","外卖"], purpose:["通用"], cuisine:"苏菜", category:"小吃" },
+  suancaiyu:      { how:["自己做","外卖"], purpose:["通用"], cuisine:"川菜", category:"肉菜" },
+  maoxuewang:     { how:["自己做","外卖"], purpose:["通用"], cuisine:"川菜", category:"肉菜" },
+  xianglaxia:     { how:["自己做","外卖"], purpose:["通用","增肌"], cuisine:"湘菜", category:"肉菜" },
+  qingzhengluyu:  { how:["自己做","外卖"], purpose:["增肌","通用"], cuisine:"粤菜", category:"肉菜" },
+  baizhuoxia:     { how:["自己做","外卖"], purpose:["增肌","减肥"], cuisine:"粤菜", category:"肉菜" },
+  suanrongxilanhua: { how:["自己做","外卖"], purpose:["减肥","平衡","通用"], cuisine:"家常", category:"素菜" },
+  hongshaoyu:     { how:["自己做","外卖"], purpose:["通用"], cuisine:"家常", category:"肉菜" },
+  tudoudunniurou: { how:["自己做"], purpose:["增肌","通用"], cuisine:"家常", category:"肉菜" },
+  huangmenji:     { how:["自己做","外卖"], purpose:["通用"], cuisine:"鲁菜", category:"肉菜" },
+  gongbaoxiaqiu:  { how:["自己做","外卖"], purpose:["增肌","通用"], cuisine:"川菜", category:"肉菜" },
+  duojiaoyutou:   { how:["自己做","外卖"], purpose:["通用"], cuisine:"湘菜", category:"肉菜" },
+  ganguohuacai:   { how:["自己做","外卖"], purpose:["平衡","减肥"], cuisine:"川菜", category:"素菜" },
+  xiangguhuaji:   { how:["自己做","外卖"], purpose:["增肌","通用"], cuisine:"粤菜", category:"肉菜" },
+  xiangganchaorou: { how:["自己做"], purpose:["通用"], cuisine:"家常", category:"肉菜" },
+  huashengdunpaigu: { how:["自己做"], purpose:["增肌","通用"], cuisine:"家常", category:"肉菜" },
+  liangbanmuer:   { how:["自己做","外卖"], purpose:["减肥","平衡","通用"], cuisine:"家常", category:"素菜" }
 };
 
 

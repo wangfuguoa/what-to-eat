@@ -84,6 +84,15 @@
       <view class="mode-choice">
         <view v-for="m in RECOMMEND_MODES" :key="m.key" class="mode-choice-item" :class="{ active: state.settings.homeModes.includes(m.key), locked: m.vipOnly && !isVip() }" @tap="onReplaceWith(m.key)">{{ m.icon }} {{ m.label }}{{ m.vipOnly && !isVip() ? ' 🔒' : '' }}</view>
       </view>
+
+      <view class="opt-group-title">玩法皮肤</view>
+      <view class="guide"><text>给每种抽取玩法换外观，点一下即可切换。后续会陆续上线更多付费皮肤。</text></view>
+      <view v-for="m in RECOMMEND_MODES" :key="'sk'+m.key" class="skin-row">
+        <view class="skin-row-head"><text class="skin-mode">{{ m.icon }} {{ m.label }}</text><text class="skin-current">{{ skinLabel(m.key) }}</text></view>
+        <view class="skin-choices">
+          <view v-for="s in (MODE_SKINS[m.key] || [])" :key="s.key" class="skin-chip" :class="{ active: skinActive(m.key, s.key) }" @tap="pickSkin(m.key, s.key)">{{ s.label }}</view>
+        </view>
+      </view>
     </view>
 
     <view class="card">
@@ -177,7 +186,7 @@
 </template>
 <script setup>
   import { ref, computed, onMounted } from 'vue'
-  import { state, THEMES, setTheme, isVip, clearHistory, clearEatenCounts, saveSettings, allFoods, RECOMMEND_MODES, isModeVip, replaceHomeMode, setPopupChip, VIP_POPUP_CHIPS } from '@/store/food'
+  import { state, THEMES, setTheme, isVip, clearHistory, clearEatenCounts, saveSettings, allFoods, RECOMMEND_MODES, isModeVip, replaceHomeMode, setPopupChip, VIP_POPUP_CHIPS, MODE_SKINS, getModeSkin, setModeSkin } from '@/store/food'
   import { saveToCloud, refreshVip, loginAccount, registerAccount, logoutAccount } from '@/utils/sync'
   import { callApi } from '@/utils/cloudbase'
 
@@ -249,6 +258,21 @@ function setS(k, v) {
 function modeLabel(k) {
   const m = RECOMMEND_MODES.find(x => x.key === k)
   return m ? (m.icon + ' ' + m.label) : k
+}
+function skinLabel(mode) {
+  const s = getModeSkin(mode)
+  return s ? s.label : '默认'
+}
+function skinActive(mode, key) {
+  const skins = MODE_SKINS[mode] || []
+  if (!skins.length) return false
+  const cur = state.modeSkins[mode] || skins[0].key
+  return cur === key
+}
+function pickSkin(mode, key) {
+  setModeSkin(mode, key)
+  saveToCloud()
+  toast('已切换' + modeLabel(mode) + '皮肤：' + skinLabel(mode))
 }
   function toggleChip(key) {
     if (!state.settings.showWelcomePopup) { toast('请先开启「首页欢迎弹窗」'); return }
@@ -436,6 +460,13 @@ onMounted(() => {
 .mode-choice-item { font-size: 13px; padding: 7px 12px; border-radius: 999px; background: #f4ece3; color: #6b5d4e; border: 1px solid transparent; }
 .mode-choice-item.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); font-weight: 700; }
 .mode-choice-item.locked { opacity: 0.55; }
+.skin-row { margin-top: 8px; }
+.skin-row-head { display: flex; align-items: center; justify-content: space-between; }
+.skin-mode { font-size: 13px; color: #2d2a26; font-weight: 700; }
+.skin-current { font-size: 12px; color: var(--accent); font-weight: 600; }
+.skin-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.skin-chip { font-size: 13px; padding: 7px 14px; border-radius: 999px; background: #f4ece3; color: #6b5d4e; border: 1px solid transparent; }
+.skin-chip.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); font-weight: 700; }
 .switch { width: 46px; height: 26px; border-radius: 999px; background: #ddd; position: relative; transition: background .2s; flex-shrink: 0; }
 .switch .knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
 .switch.on { background: var(--accent); }

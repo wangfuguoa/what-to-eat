@@ -1,5 +1,5 @@
 import { reactive, computed } from 'vue'
-import { BUILTIN_FOODS, FOOD_META, NUTRITION_META } from '@/data/foods'
+import { BUILTIN_FOODS, EXTRA_FOODS, FOOD_META, NUTRITION_META } from '@/data/foods'
 
 export const STAPLES = ['米饭', '面条', '馒头', '包子', '饺子', '饼', '粥', '粉', '无']
 export const TASTES = ['酸', '甜', '苦', '辣', '咸', '鲜', '香', '麻', '清淡']
@@ -13,9 +13,41 @@ export const RECOMMEND_MODES = [
   { key: 'draw', label: '抽签', icon: '🥢' },
   { key: 'flip', label: '翻牌', icon: '🎴' },
   { key: 'dice', label: '掷骰', icon: '🎲', vipOnly: true },
-  { key: 'capsule', label: '转蛋', icon: '🎁', vipOnly: true }
+  { key: 'capsule', label: '转蛋', icon: '🎁', vipOnly: true },
+  { key: 'dart', label: '飞镖', icon: '🎯' }
 ]
 export const WHEEL_COLORS = ['#ff6b6b', '#feca57', '#1dd1a1', '#54a0ff', '#5f27cd', '#ff9f43', '#f368e0', '#00d2d3', '#ee5253', '#10ac84', '#48dbfb', '#ffd32a']
+
+// 主页玩法皮肤：每种玩法多套可切换样式
+export const MODE_SKINS = {
+  wheel: [
+    { key: 'classic', label: '经典', colors: ['#ff6b6b', '#feca57', '#1dd1a1', '#54a0ff', '#5f27cd', '#ff9f43', '#f368e0', '#00d2d3', '#ee5253', '#10ac84', '#48dbfb', '#ffd32a'] },
+    { key: 'neon', label: '霓虹', colors: ['#8ec5fc', '#e0c3fc', '#fbc2eb', '#a1c4fd', '#c2e9fb', '#d4fc79', '#96e6a1', '#fddb92', '#f7a7c4', '#c2e9fb', '#a1c4fd', '#8ec5fc'] },
+    { key: 'forest', label: '森林', colors: ['#2f4858', '#33658a', '#86bbd8', '#f6ae2d', '#f26419', '#4f6d7a', '#6d9f71', '#c8d5b9', '#a89968', '#8cb369', '#5b8e7d', '#bc4b51'] }
+  ],
+  draw: [
+    { key: 'classic', label: '竹签', bg: '#f6d9a0', ink: '#4a2f1b' },
+    { key: 'neon', label: '霓虹', bg: '#2c3e50', ink: '#f8f9fa' },
+    { key: 'pink', label: '桃花', bg: '#ffe3ec', ink: '#a83a5b' }
+  ],
+  flip: [
+    { key: 'classic', label: '经典', backBg: '#2d2a26', backFg: '#fff' },
+    { key: 'neon', label: '霓虹', backBg: '#1b2a4a', backFg: '#ffd766' },
+    { key: 'pink', label: '桃花', backBg: '#ff9db8', backFg: '#7a1f3d' }
+  ],
+  dice: [
+    { key: 'classic', label: '白骰', bg: '#fff', fg: '#333' },
+    { key: 'neon', label: '霓虹', bg: '#1b2a4a', fg: '#ffd766' }
+  ],
+  capsule: [
+    { key: 'classic', label: '粉蛋', bg: '#ff8fb1', ball: '#ffd54f' },
+    { key: 'neon', label: '蓝蛋', bg: '#4a6cf7', ball: '#7bd3ff' }
+  ],
+  dart: [
+    { key: 'classic', label: '红黑', bg: '#c0392b', ring: '#f1c40f' },
+    { key: 'neon', label: '蓝紫', bg: '#2c3e50', ring: '#8e44ad' }
+  ]
+}
 
 const MS = { 天: 86400000, 周: 7 * 86400000, 月: 30 * 86400000 }
 const LS = {
@@ -34,7 +66,9 @@ const LS = {
     recMode: 'eatpick_rec_mode',
     theme: 'eatpick_theme',
     account: 'eatpick_account',
-    eatenCounts: 'eatpick_eaten_counts'
+    eatenCounts: 'eatpick_eaten_counts',
+    inPool: 'eatpick_in_pool',
+    modeSkins: 'eatpick_mode_skins'
   }
 
 function load(key, fallback) {
@@ -61,6 +95,8 @@ export const state = reactive({
     vip: null,
     account: { loggedIn: false, username: '' },
     eatenCounts: {},
+    inPool: [],
+    modeSkins: {},
     settings: { memoryValue: 3, memoryUnit: '天', includeMarked: false, showWelcomePopup: true, showCalories: true, welcomeCycle: 'daily', popupChips: { fortune: true, pairing: false, tips: false }, homeModes: ['wheel', 'draw', 'flip'] },
     dailyRecords: [],
   howToEat: '点外卖',
@@ -96,7 +132,7 @@ function mergeMeta(f) {
 }
 
 function allFoods() {
-  return BUILTIN_FOODS.concat(state.custom).map(mergeMeta)
+  return BUILTIN_FOODS.concat(EXTRA_FOODS).concat(state.custom).map(mergeMeta)
 }
 
 function visibleFoods() {
@@ -144,8 +180,9 @@ function expireFromNow(status) {
 export const currentPool = computed(() => {
   const active = activeMarksMap()
   const howTag = HOW_TAGS[state.howToEat]
-  return visibleFoods().filter(f => {
-    if (state.howToEat && howTag && f.how.indexOf(howTag) === -1) return false
+    return visibleFoods().filter(f => {
+      if (!state.inPool.includes(f.id)) return false
+      if (state.howToEat && howTag && f.how.indexOf(howTag) === -1) return false
     if (state.selPurpose.length) {
       const ok = state.selPurpose.some(p => f.purpose.includes(p) || f.purpose.includes('通用'))
       if (!ok) return false
@@ -211,6 +248,10 @@ export function initStore() {
     state.favorites = load(LS.favorites, [])
     state.history = load(LS.history, [])
     state.eatenCounts = load(LS.eatenCounts, {})
+    const defaultPool = BUILTIN_FOODS.map(f => f.id)
+    state.inPool = load(LS.inPool, defaultPool)
+    if (!Array.isArray(state.inPool) || !state.inPool.length) state.inPool = defaultPool.slice()
+    state.modeSkins = load(LS.modeSkins, {})
     state.vip = load(LS.vip, null)
     state.account = load(LS.account, { loggedIn: false, username: '' })
     state.howToEat = load(LS.how, HOW_OPTIONS[0])
@@ -456,6 +497,20 @@ export function setPopupChip(key, val) {
   saveSettings({})
 }
 
+export function setModeSkin(mode, skinKey) {
+  const skins = MODE_SKINS[mode] || []
+  if (!skins.some(s => s.key === skinKey)) return
+  state.modeSkins = Object.assign({}, state.modeSkins, { [mode]: skinKey })
+  save(LS.modeSkins, state.modeSkins)
+}
+
+export function getModeSkin(mode) {
+  const skins = MODE_SKINS[mode] || []
+  if (!skins.length) return null
+  const key = state.modeSkins[mode]
+  return skins.find(s => s.key === key) || skins[0]
+}
+
 export function slug(s) {
   return String(s).replace(/\s+/g, '').replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, '').slice(0, 12)
 }
@@ -606,10 +661,23 @@ export const poolState = reactive({ tab: 'rand', category: '', search: '', expan
 export function addToPool(id) {
   const i = state.hidden.indexOf(id)
   if (i >= 0) state.hidden.splice(i, 1)
+  if (state.inPool.indexOf(id) === -1) {
+    state.inPool.push(id)
+    save(LS.inPool, state.inPool)
+  }
   save(LS.hidden, state.hidden)
   resetDishPool()
 }
 
+export function removeFromPool(id) {
+  const i = state.inPool.indexOf(id)
+  if (i >= 0) {
+    state.inPool.splice(i, 1)
+    save(LS.inPool, state.inPool)
+  }
+  resetDishPool()
+}
+
 export function isInPool(id) {
-  return state.hidden.indexOf(id) === -1
+  return state.inPool.indexOf(id) !== -1
 }

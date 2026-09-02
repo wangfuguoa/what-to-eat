@@ -97,13 +97,14 @@
     <view v-else class="card science-card">
       <view class="section-head">
         <text class="card-title">吃饭小科普</text>
-        <text class="muted">点亮 ☆ 收藏</text>
+        <text class="muted">点亮 ★ 关注，可置顶</text>
       </view>
-      <view v-for="s in SCIENCE_TIPS" :key="s.id" class="science-item">
+      <view v-for="s in scienceList" :key="s.id" class="science-item" :class="{ lit: isLit(s.id), pinned: isPinned(s.id) }">
         <view class="science-head">
           <text class="science-icon">{{ s.i }}</text>
           <text class="science-title">{{ s.t }}</text>
-          <button class="btn small ghost fav" @tap="toggleScience(s.id)">{{ savedScience.includes(s.id) ? '★' : '☆' }}</button>
+          <button class="btn small ghost fav" @tap="toggleScience(s.id)">{{ isLit(s.id) ? '★' : '☆' }}</button>
+          <button v-if="isLit(s.id)" class="btn small ghost pin" @tap="togglePin(s.id)">{{ isPinned(s.id) ? '📍' : '置顶' }}</button>
         </view>
         <text class="science-body">{{ s.b }}</text>
       </view>
@@ -157,7 +158,7 @@ import { onShow } from '@dcloudio/uni-app'
 import {
   state, poolState, CATEGORY_OPTIONS, STAPLES, TASTES,
   currentPool, visibleFoods, isFavorite, toggleFavorite, markFood, unmarkFood,
-  findFood, deleteFood, addCustomFood, isInPool, addToPool
+    findFood, deleteFood, addCustomFood, isInPool, addToPool, removeFromPool
 } from '@/store/food'
 import { saveToCloud } from '@/utils/sync'
 
@@ -234,26 +235,45 @@ function onDelete(id) {
 function toggleExpand(id) {
   poolState.expandId = poolState.expandId === id ? '' : id
 }
-function addToRandom(id) {
-  if (!isInPool(id)) { addToPool(id); toast('已加入随机池') }
-  else { toast('已在随机池中') }
-  saveToCloud()
-}
-function loadScience() {
-  try {
-    const raw = uni.getStorageSync('eatpick_science_fav')
-    savedScience.value = raw ? JSON.parse(raw) : []
-  } catch (e) { savedScience.value = [] }
-}
-function saveScience() {
-  try { uni.setStorageSync('eatpick_science_fav', JSON.stringify(savedScience.value)) } catch (e) {}
-}
-function toggleScience(id) {
-  const i = savedScience.value.indexOf(id)
-  if (i >= 0) savedScience.value.splice(i, 1)
-  else savedScience.value.push(id)
-  saveScience()
-}
+  function addToRandom(id) {
+    if (!isInPool(id)) { addToPool(id); toast('已加入随机池') }
+    else { removeFromPool(id); toast('已移出随机池') }
+    saveToCloud()
+  }
+  function loadScience() {
+    try {
+      const raw = uni.getStorageSync('eatpick_science_fav')
+      const arr = raw ? JSON.parse(raw) : []
+      savedScience.value = Array.isArray(arr) ? arr.map(x => (typeof x === 'string'
+        ? { id: x, ts: 0, pinned: false, pinnedAt: 0 }
+        : { id: x.id, ts: Number(x.ts) || 0, pinned: !!x.pinned, pinnedAt: Number(x.pinnedAt) || 0 })) : []
+    } catch (e) { savedScience.value = [] }
+  }
+  function saveScience() {
+    try { uni.setStorageSync('eatpick_science_fav', JSON.stringify(savedScience.value)) } catch (e) {}
+  }
+  const scienceList = computed(() => {
+    const lit = savedScience.value
+    const pinned = lit.filter(x => x.pinned).sort((a, b) => (b.pinnedAt || 0) - (a.pinnedAt || 0))
+    const on = lit.filter(x => !x.pinned).sort((a, b) => (a.ts || 0) - (b.ts || 0))
+    const off = SCIENCE_TIPS.filter(s => !lit.some(x => x.id === s.id))
+    return [...pinned, ...on, ...off]
+  })
+  function isLit(id) { return savedScience.value.some(x => x.id === id) }
+  function isPinned(id) { const x = savedScience.value.find(y => y.id === id); return !!(x && x.pinned) }
+  function toggleScience(id) {
+    const i = savedScience.value.findIndex(x => x.id === id)
+    if (i >= 0) savedScience.value.splice(i, 1)
+    else savedScience.value.push({ id, ts: Date.now(), pinned: false, pinnedAt: 0 })
+    saveScience()
+  }
+  function togglePin(id) {
+    const x = savedScience.value.find(y => y.id === id)
+    if (!x) return
+    x.pinned = !x.pinned
+    x.pinnedAt = x.pinned ? Date.now() : 0
+    saveScience()
+  }
 function openAdd() {
   form.value = { name: '', category: '小吃', staples: [], tastes: [], note: '', recipe: '' }
   addVisible.value = true
@@ -316,6 +336,8 @@ onShow(() => {
 .recipe-step { font-size: 14px; color: #6b5d4e; line-height: 1.8; display: block; }
 .guide { background: #f0f8ff; border-radius: 12px; padding: 10px; font-size: 13px; color: #3b6a8a; margin-top: 10px; }
 .science-item { padding: 12px 0; border-bottom: 1px solid #f4ece3; }
+.science-item.lit { background: #fff9ec; border-radius: 12px; padding: 12px; border: 1px solid #ffe6b0; margin: 6px 0; }
+.science-item.pinned { background: #fff3e0; border: 1px solid #ffc86a; }
 .science-head { display: flex; align-items: center; gap: 8px; }
 .science-icon { font-size: 20px; }
 .science-title { font-size: 15px; font-weight: 700; color: #2d2a26; flex: 1; }
@@ -327,6 +349,7 @@ onShow(() => {
 .btn.small { font-size: 12px; padding: 6px 10px; }
 .btn.danger { color: #e74c3c; border-color: #f3c0bb; }
 .btn.fav { color: #e85d8a; border-color: #ffd7e2; }
+.btn.pin { color: #c9730a; border-color: #f6cf9a; }
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
 .modal { background: #fff; border-radius: 18px; padding: 20px; width: 100%; max-width: 400px; position: relative; max-height: 85vh; overflow-y: auto; }
 .modal-close { position: absolute; top: 10px; right: 12px; background: #f0ece7; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 18px; color: #6b5d4e; line-height: 1; }

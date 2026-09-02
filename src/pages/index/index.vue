@@ -32,7 +32,7 @@
       </view>
 
       <!-- 抽签 -->
-      <view v-else-if="mode === 'draw'" class="hero-draw" @tap="toggleDraw">
+      <view v-else-if="mode === 'draw'" class="hero-draw" @tap="toggleDraw" :style="{ '--sk-bg': (skin && skin.bg) || '#f6d9a0', '--sk-ink': (skin && skin.ink) || '#4a2f1b' }">
         <view class="qiantong" :class="{ shake: drawing }">
           <view class="qian" v-for="i in 4" :key="'q'+i" :style="{ transform: 'rotate(' + ((i - 2.5) * 8) + 'deg)' }">
             <text class="qian-word">吃</text>
@@ -43,19 +43,31 @@
       </view>
 
       <!-- 掷骰 -->
-      <view v-else-if="mode === 'dice'" class="hero-dice" @tap="toggleDice">
+      <view v-else-if="mode === 'dice'" class="hero-dice" @tap="toggleDice" :style="{ '--sk-dbg': (skin && skin.bg) || '#fff', '--sk-dfg': (skin && skin.fg) || '#333' }">
         <view class="dice-face" :class="{ rolling: drawing }"><text class="dice-dot">{{ diceFace }}</text></view>
         <text class="hero-btn-sub">{{ drawing ? '掷骰中…' : '点一下掷骰子' }}</text>
       </view>
 
       <!-- 转蛋 -->
-      <view v-else-if="mode === 'capsule'" class="hero-capsule" @tap="toggleCapsule">
+      <view v-else-if="mode === 'capsule'" class="hero-capsule" @tap="toggleCapsule" :style="{ '--sk-cbg': (skin && skin.bg) || '#ff8a66', '--sk-cball': (skin && skin.ball) || '#ffd54f' }">
         <view class="capsule-machine"><view class="capsule-ball" :class="{ drop: drawing }"></view></view>
         <text class="hero-btn-sub">{{ drawing ? '掉蛋中…' : '点一下扭蛋' }}</text>
       </view>
 
+      <!-- 飞镖 -->
+      <view v-else-if="mode === 'dart'" class="hero-dart" @tap="toggleDart" :style="{ '--sk-tbg': (skin && skin.bg) || '#c0392b', '--sk-tring': (skin && skin.ring) || '#f1c40f' }">
+        <view class="dart-target" :class="{ throb: drawing }">
+          <view class="dart-ring r1"></view>
+          <view class="dart-ring r2"></view>
+          <view class="dart-ring r3"></view>
+          <view class="dart-bull"><text class="dart-bull-txt">{{ drawing ? '…' : '🎯' }}</text></view>
+          <view class="dart-throw" :class="{ out: drawing }">🗡</view>
+        </view>
+        <text class="hero-btn-sub">{{ drawing ? '投掷中…' : '点一下掷飞镖' }}</text>
+      </view>
+
       <!-- 翻牌 -->
-      <view v-else-if="mode === 'flip'" class="hero-flip">
+      <view v-else-if="mode === 'flip'" class="hero-flip" :style="{ '--sk-back': (skin && skin.backBg) || '#2d2a26', '--sk-fg': (skin && skin.backFg) || '#fff' }">
         <view class="flip-grid">
           <view v-for="(c, i) in flipCards" :key="i" class="flip-card" :class="{ revealed: flipRevealed === i }" @tap="flipCard(i)">
             <view class="flip-inner">
@@ -300,7 +312,7 @@ import { ref, computed, onMounted, onUnmounted, watch, getCurrentInstance, nextT
 import { onShow } from '@dcloudio/uni-app'
 import {
   state, STAPLES, TASTES, HOW_OPTIONS, PURPOSE_OPTIONS,
-  CUISINE_OPTIONS, RECOMMEND_MODES, WHEEL_COLORS,
+  CUISINE_OPTIONS, RECOMMEND_MODES, WHEEL_COLORS, getModeSkin,
   initStore, setHowToEat, togglePurpose, toggleCuisine, toggleFilter,
   setPurpose, setCuisine, setStaples, setTastes, spinModule,
   setPoolLimit, setRecommendMode, pickRecommend, resultFromAngle,
@@ -355,6 +367,7 @@ const dishPool = computed(() => state.dishPool)
 const dailyCalories = computed(() => todayCalories.value)
 const homeModes = computed(() => state.settings.homeModes || ['wheel', 'draw', 'flip'])
 function modeByKey(k) { return RECOMMEND_MODES.find(m => m.key === k) }
+const skin = computed(() => getModeSkin(mode.value))
 const pairingText = ref('')
 const healthTipText = ref('')
 
@@ -413,13 +426,15 @@ function drawWheel() {
   }
   const n = Math.min(arr.length, 28)
   const slice = (Math.PI * 2) / n
+  const skinWheel = getModeSkin('wheel')
+  const colors = (skinWheel && skinWheel.colors) || WHEEL_COLORS
   for (let i = 0; i < n; i++) {
     const a = state.wheelAngle + i * slice
     ctx.beginPath()
     ctx.moveTo(cx, cy)
     ctx.arc(cx, cy, r, a, a + slice)
     ctx.closePath()
-    ctx.setFillStyle(WHEEL_COLORS[i % WHEEL_COLORS.length])
+    ctx.setFillStyle(colors[i % colors.length])
     ctx.fill()
     ctx.setStrokeStyle('#fff')
     ctx.setLineWidth(1.5)
@@ -528,6 +543,18 @@ function toggleCapsule() {
   }, 900)
 }
 
+function toggleDart() {
+  if (drawing.value) return
+  if (!dishPool.value.length) { toast('没有符合条件的菜，先放宽筛选'); return }
+  drawing.value = true
+  state.recommendResult = null
+  resultConfirmed.value = false
+  setTimeout(() => {
+    drawing.value = false
+    state.recommendResult = pickRecommend(dishPool.value)
+  }, 900)
+}
+
 function switchMode(k) {
   if (k !== mode.value && isModeVip(k) && !isVip()) { toast('VIP 专属玩法，开通后可切换'); openVipSheet(); return }
   if (mode.value === k) return
@@ -540,6 +567,7 @@ function switchMode(k) {
   else if (k === 'flip') generateFlips()
   else if (k === 'dice') { diceFace.value = '🎲' }
   else if (k === 'capsule') { drawing.value = false }
+  else if (k === 'dart') { drawing.value = false }
 }
 
 function moduleSpin(kind) {
@@ -576,6 +604,8 @@ function autoReplay() {
     toggleDice()
   } else if (mode.value === 'capsule') {
     toggleCapsule()
+  } else if (mode.value === 'dart') {
+    toggleDart()
   } else {
     generateFlips()
   }
@@ -666,6 +696,7 @@ function startAdventure() {
   else if (mode.value === 'draw') toggleDraw()
   else if (mode.value === 'dice') toggleDice()
   else if (mode.value === 'capsule') toggleCapsule()
+  else if (mode.value === 'dart') toggleDart()
   else flipCard(0)
 }
 function goMine() {
@@ -807,9 +838,9 @@ watch(recommendResult, (val) => {
 
 .hero-draw { display: flex; flex-direction: column; align-items: center; padding: 22px 0 14px; }
 .qiantong { position: relative; width: 110px; height: 150px; }
-.qian { position: absolute; bottom: 6px; width: 26px; height: 96px; background: linear-gradient(#f7d8a0, #e6b36a); border-radius: 8px 8px 4px 4px; box-shadow: 0 3px 8px rgba(0,0,0,0.12); border: 1px solid #d9a858; }
-.qian-word { position: absolute; top: 60px; left: 0; right: 0; text-align: center; font-size: 16px; color: #a5531d; font-weight: 700; }
-.qian.m { background: linear-gradient(#d88b3a, #b16a24); width: 46px; height: 42px; border-radius: 10px 10px 26px 26px; bottom: 4px; left: 32px; display: flex; align-items: flex-start; justify-content: center; padding-top: 8px; color: #fff; font-size: 15px; font-weight: 800; }
+.qian { position: absolute; bottom: 6px; width: 26px; height: 96px; background: linear-gradient(var(--sk-bg, #f7d8a0), var(--sk-bg, #e6b36a)); border-radius: 8px 8px 4px 4px; box-shadow: 0 3px 8px rgba(0,0,0,0.12); border: 1px solid var(--sk-ink, #d9a858); }
+.qian-word { position: absolute; top: 60px; left: 0; right: 0; text-align: center; font-size: 16px; color: var(--sk-ink, #a5531d); font-weight: 700; }
+.qian.m { background: linear-gradient(var(--sk-bg, #d88b3a), var(--sk-ink, #b16a24)); width: 46px; height: 42px; border-radius: 10px 10px 26px 26px; bottom: 4px; left: 32px; display: flex; align-items: flex-start; justify-content: center; padding-top: 8px; color: #fff; font-size: 15px; font-weight: 800; }
 .qian.m.out { animation: drawUp 0.9s ease; }
 @keyframes drawUp { 0% { transform: translateY(0) rotate(0); } 40% { transform: translateY(-46px) rotate(-10deg); } 100% { transform: translateY(0) rotate(0); } }
 .qiantong.shake { animation: shake 0.4s ease; }
@@ -822,7 +853,7 @@ watch(recommendResult, (val) => {
 .flip-inner { position: relative; width: 100%; height: 100%; transition: transform 0.5s; transform-style: preserve-3d; }
 .flip-card.revealed .flip-inner { transform: rotateY(180deg); }
 .flip-face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(0,0,0,0.1); }
-.flip-face.back { background: linear-gradient(150deg, #f5c77a, #e08a3c); color: #fff; }
+.flip-face.back { background: var(--sk-back, #e08a3c); color: var(--sk-fg, #fff); }
 .flip-back-mark { font-size: 30px; font-weight: 800; }
 .flip-back-txt { font-size: 11px; margin-top: 4px; opacity: 0.85; }
 .flip-face.front { background: #fff; border: 1px solid #ffd7c2; transform: rotateY(180deg); }
@@ -903,16 +934,30 @@ watch(recommendResult, (val) => {
 .mode-tab.locked { opacity: 0.55; }
 
 .hero-dice { display: flex; flex-direction: column; align-items: center; padding: 26px 0 14px; }
-.dice-face { width: 90px; height: 90px; border-radius: 18px; background: #fff; border: 2px solid #eee; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(160,120,70,0.12); }
+.dice-face { width: 90px; height: 90px; border-radius: 18px; background: var(--sk-dbg, #fff); border: 2px solid #eee; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(160,120,70,0.12); }
 .dice-face.rolling { animation: diceToss .8s ease; }
 @keyframes diceToss { 0%{transform:translateY(0) rotate(0);} 30%{transform:translateY(-18px) rotate(120deg);} 60%{transform:translateY(0) rotate(240deg);} 100%{transform:translateY(0) rotate(360deg);} }
-.dice-dot { font-size: 44px; }
+.dice-dot { font-size: 44px; color: var(--sk-dfg, #333); }
 
 .hero-capsule { display: flex; flex-direction: column; align-items: center; padding: 22px 0 12px; }
-.capsule-machine { width: 110px; height: 130px; background: linear-gradient(#ff8a66,#ff6b35); border-radius: 16px 16px 22px 22px; position: relative; box-shadow: 0 6px 16px rgba(255,107,53,0.2); }
-.capsule-ball { width: 54px; height: 54px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #ffe6b3, #ffb347); position: absolute; left: 50%; bottom: -12px; margin-left: -27px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+.capsule-machine { width: 110px; height: 130px; background: linear-gradient(var(--sk-cbg, #ff8a66), var(--sk-cbg, #ff6b35)); border-radius: 16px 16px 22px 22px; position: relative; box-shadow: 0 6px 16px rgba(255,107,53,0.2); }
+.capsule-ball { width: 54px; height: 54px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, var(--sk-cball, #ffe6b3), var(--sk-cball, #ffb347)); position: absolute; left: 50%; bottom: -12px; margin-left: -27px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
 .capsule-ball.drop { animation: ballDrop .9s ease; }
 @keyframes ballDrop { 0%{transform:translateY(-70px);opacity:0;} 40%{transform:translateY(0);opacity:1;} 70%{transform:translateY(-18px);} 100%{transform:translateY(0);} }
+
+.hero-dart { display: flex; flex-direction: column; align-items: center; padding: 20px 0 12px; }
+.dart-target { position: relative; width: 130px; height: 130px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, var(--sk-tbg, #c0392b) 0%, #fff 95%); border: 6px solid var(--sk-tring, #f1c40f); box-shadow: 0 6px 16px rgba(0,0,0,0.16); display: flex; align-items: center; justify-content: center; }
+.dart-target.throb { animation: dartThrob .6s ease; }
+@keyframes dartThrob { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.dart-ring { position: absolute; border-radius: 50%; border: 3px solid rgba(255,255,255,0.75); }
+.dart-ring.r1 { width: 92px; height: 92px; }
+.dart-ring.r2 { width: 56px; height: 56px; }
+.dart-ring.r3 { width: 22px; height: 22px; border-color: rgba(255,255,255,0.95); }
+.dart-bull { width: 34px; height: 34px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 2; }
+.dart-bull-txt { font-size: 18px; }
+.dart-throw { position: absolute; top: 50%; left: 50%; margin: -20px 0 0 -20px; font-size: 34px; opacity: 0; transform: translate(-50%, -50%); z-index: 3; }
+.dart-throw.out { animation: dartFly .9s ease; opacity: 1; }
+@keyframes dartFly { 0% { transform: translate(-50%, -50%) scale(.4); opacity: 0; } 40% { transform: translate(-50%, -120%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
 
 .hero-result.pop { animation: popIn .5s cubic-bezier(.2,.9,.3,1.3); }
 @keyframes popIn { 0%{transform:scale(.92);opacity:.4;} 60%{transform:scale(1.04);} 100%{transform:scale(1);opacity:1;} }

@@ -150,9 +150,11 @@ async function getUserData(event, openid) {
     customFoods: doc.customFoods || [],
     marks: doc.marks || {},
     eatenCounts: doc.eatenCounts || {},
+    inPool: doc.inPool || [],
+    modeSkins: doc.modeSkins || {},
     vip: normalizeVip(doc.vip, now)
   } : {
-    favorites: [], history: [], customFoods: [], marks: {}, eatenCounts: {}, vip: { status: 'none', expireAt: 0, plan: null }
+    favorites: [], history: [], customFoods: [], marks: {}, eatenCounts: {}, inPool: [], modeSkins: {}, vip: { status: 'none', expireAt: 0, plan: null }
   }
   return ok(Object.assign(data, { ownerType: owner.account ? 'account' : 'anon' }))
 }
@@ -167,8 +169,10 @@ async function saveUserData(event, openid) {
   if (Array.isArray(data.favorites)) payload.favorites = data.favorites
   if (Array.isArray(data.history)) payload.history = data.history
   if (Array.isArray(data.customFoods)) payload.customFoods = data.customFoods
+  if (Array.isArray(data.inPool)) payload.inPool = data.inPool
   if (data.marks && typeof data.marks === 'object') payload.marks = data.marks
   if (data.eatenCounts && typeof data.eatenCounts === 'object') payload.eatenCounts = data.eatenCounts
+  if (data.modeSkins && typeof data.modeSkins === 'object') payload.modeSkins = data.modeSkins
   payload.updatedAt = db.serverDate()
 
   const existing = await users.where({ _openid: key }).get()
@@ -210,7 +214,7 @@ async function redeemVip(event, openid) {
   } else {
     await users.add({
       _openid: key,
-      favorites: [], history: [], customFoods: [], marks: {}, eatenCounts: {},
+      favorites: [], history: [], customFoods: [], marks: {}, eatenCounts: {}, inPool: [], modeSkins: {},
       vip: { status: 'active', plan, expireAt: now + days * 86400000 },
       createdAt: db.serverDate()
     })

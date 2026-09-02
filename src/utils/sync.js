@@ -15,6 +15,8 @@ function snapshot() {
     customFoods: state.custom || [],
     marks: state.marks || {},
     eatenCounts: state.eatenCounts || {},
+    inPool: state.inPool || [],
+    modeSkins: state.modeSkins || {},
     settings: state.settings || {}
   }
 }
@@ -81,6 +83,12 @@ function mergeFromCloud(data) {
   }
   if (!state.eatenCounts || Object.keys(state.eatenCounts).length === 0) {
     if (data.eatenCounts && typeof data.eatenCounts === 'object') state.eatenCounts = data.eatenCounts
+  }
+  if (!state.inPool || state.inPool.length === 0) {
+    if (Array.isArray(data.inPool) && data.inPool.length) state.inPool = data.inPool
+  }
+  if (!state.modeSkins || Object.keys(state.modeSkins).length === 0) {
+    if (data.modeSkins && typeof data.modeSkins === 'object') state.modeSkins = data.modeSkins
   }
   if (!state.menu || state.menu.length === 0) {
     if (Array.isArray(data.menu) && data.menu.length) state.menu = data.menu
