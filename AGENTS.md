@@ -42,6 +42,20 @@
 
 - CloudBase 环境显示名最终保持 `codex`（用户曾临时改为 `wcode`，后用 `tcb env rename` 改回）。环境 ID 仍为 `codex-d2glhcz9z707d54bb`，未变化；`cloudfunctions/cloudbaserc.json`、`src/utils/cloudbase.js` 的 `ENV_ID`、GitHub Secrets `TCB_ENV_ID` 均无需修改。
 
+## 后端调用通道（HTTP 网关）
+
+网页端不再依赖 `@cloudbase/js-sdk` 的匿名登录（体验版套餐无法开通「身份认证」，也无法添加「Web 安全域名」，报 `[CreateAuthDomain] 当前套餐无法执行此操作`），改为**直连 CloudBase HTTP 网关**：
+
+- 接口地址：`https://codex-d2glhcz9z707d54bb-1427137188.ap-shanghai.app.tcloudbase.com/api`
+- 路由：`/api` → 云函数 `SCF:eatpick-api`（同一云函数同时支持 SDK 调用与 HTTP 调用）
+- 调用方式：`POST` + `Content-Type: application/json`，body 为 `{ action, ...参数, authToken?, anonId? }`，返回 `{ ok, data }` 或 `{ ok:false, code, msg }`
+- 前端位置：`src/utils/cloudbase.js` 的 `callApi()`。H5 / App 走 `uni.request` 直连网关；微信小程序仍走 SDK（`useHttpTransport()` 用条件编译区分）
+- 未登录用户用前端生成的 `anonId`（存储键 `eatpick_anon_id`）区分数据，避免多人共用一份匿名数据
+- 云函数返回时统一包一层 CORS 头（`Access-Control-Allow-Origin: *`），支持 `OPTIONS` 预检
+- 好处：不需要登录态、不需要域名备案、不需要白名单，任何域名下的网页都能调用
+
+新建/修改 HTTP 路由需用 `@cloudbase/manager-node` 的管理 API（临时装在 `%TEMP%\cbmgr`，**不要**加进项目依赖）。
+
 ## 约定 / 给 Agent 的注意
 
 - 界面/文案使用简体中文。
