@@ -23,39 +23,66 @@ async function ensureCollections() {
 }
 
 exports.main = async (event = {}) => {
-  const wxContext = cloud.getWXContext() || {}
-  const OPENID = wxContext.OPENID || ''
-  const action = event.action
+  // 兼容两种调用来源：CloudBase SDK 调用（直接带 event.action）与 HTTP 网关调用（event.body 里带 JSON）
+  const isHttp = !(event && typeof event.action === 'string') &&
+    !!(event && (typeof event.body === 'string' || typeof event.httpMethod === 'string' || typeof event.path === 'string' || event.requestContext))
 
+  let payload = event
+  if (isHttp) {
+    const method = String(event.httpMethod || 'POST').toUpperCase()
+    if (method === 'OPTIONS') return httpResponse(204, {})
+    const query = event.queryStringParameters || {}
+    if (event.body && typeof event.body === 'object') {
+      payload = event.body
+    } else {
+      try { payload = event.body ? JSON.parse(event.body) : {} } catch (e) { payload = {} }
+    }
+    if (!payload || typeof payload !== 'object') payload = {}
+    if (!payload.action && query.action) payload = Object.assign({}, query, payload)
+  }
+
+  let OPENID = ''
+  try { OPENID = (cloud.getWXContext() || {}).OPENID || '' } catch (e) { OPENID = '' }
+  const action = payload.action
+
+  let result
   try {
     switch (action) {
       case 'login-anon':
-        return ok({ openid: OPENID })
-
+        result = ok({ openid: OPENID }); break
       case 'register':
-        return await register(event.username, event.password)
-
+        result = await register(payload.username, payload.password); break
       case 'login':
-        return await login(event.username, event.password)
-
+        result = await login(payload.username, payload.password); break
       case 'logout':
-        return await logout(event.authToken)
-
+        result = await logout(payload.authToken); break
       case 'getUserData':
-        return await getUserData(event, OPENID)
-
+        result = await getUserData(payload, OPENID); break
       case 'saveUserData':
-        return await saveUserData(event, OPENID)
-
+        result = await saveUserData(payload, OPENID); break
       case 'redeemVip':
-        return await redeemVip(event, OPENID)
-
+        result = await redeemVip(payload, OPENID); break
       default:
-        return err('unknown action: ' + action)
+        result = err('unknown action: ' + action)
     }
   } catch (e) {
     console.error('[eatpick-api]', action, e)
-    return err(e.message || 'server error')
+    result = err(e.message || 'server error')
+  }
+  return isHttp ? httpResponse(200, result) : result
+}
+
+// HTTP 网关响应：带 CORS 头，便于任意域名下的网页直接调用
+function httpResponse(statusCode, obj) {
+  return {
+    statusCode,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+    },
+    body: JSON.stringify(obj)
   }
 }
 
@@ -127,7 +154,10 @@ async function resolveOwner(event, openid) {
     const res = await accounts.where({ token }).get()
     if (res.data && res.data[0]) return { key: 'acct_' + res.data[0]._id, account: res.data[0] }
   }
-  return { key: openid || 'anon_unknown', account: null }
+  // 未登录：HTTP 网关调用拿不到微信 openid，用前端生成的设备匿名 ID 区分，避免多人共用一份数据
+  if (openid) return { key: openid, account: null }
+  const anonId = String(event.anonId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48)
+  return { key: anonId ? 'anon_' + anonId : 'anon_unknown', account: null }
 }
 
 // ---------- 用户数据 / VIP ----------
