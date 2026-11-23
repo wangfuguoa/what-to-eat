@@ -63,3 +63,23 @@
 - 云函数改动在 `cloudfunctions/eatpick-api/index.js`，改后需重新部署云函数。
 - 保持与现有代码风格一致，小步修改；涉及页面增删同步更新 `src/pages.json`。
 - 做改动前先看 `git status` / `git log`，确认当前工作区状态；与本仓库其他会话避免并发改同一文件、并发 push。
+
+## Android / APK（Capacitor 外壳）
+
+- 目录：`android-shell/`（Capacitor 6 + 本地 H5 产物，WebView 壳，非原生重写）
+- 构建流程：
+  1. 根目录 `npm run build:h5` 生成 `dist/build/h5`
+  2. `cd android-shell; npm run sync`（复制到 `www/` 并执行 `cap sync`）
+  3. `cd android; $env:JAVA_HOME='D:\YingYong\Java'; $env:ANDROID_HOME='C:\Android\sdk'; .\gradlew.bat assembleRelease --no-daemon`
+- 产物：`android-shell/android/app/build/outputs/apk/release/app-release.apk`，副本放 `release/what-to-eat-<版本>.apk`
+- 环境：JDK17 `D:\YingYong\Java`；Android SDK `C:\Android\sdk`（platforms;android-34、build-tools;34.0.0）；Gradle 8.2.1 分发包已本地缓存（官方源下载会卡死）
+- 签名：`android-shell/android/app/whattoeat-release.jks`（alias `whattoeat`），密码见 `android/keystore.properties`；两者均被 gitignore，**切勿提交**。备份在 `android-shell/keys/`（同样 gitignore）
+- 升级版本必须复用同一 jks，否则已安装用户只能卸载重装；发版前改 `app/build.gradle` 的 `versionCode/versionName`
+- 国内应用商店分发还需：软件著作权、APP 备案、隐私政策、隐私合规检测
+
+## 微信小程序上线要点
+
+- AppID 填 `src/manifest.json` 的 `mp-weixin.appid` 与 `project.config.json`（当前是测试用的 `touristappid`）
+- `npm run build:mp-weixin` → 微信开发者工具导入 `dist/build/mp-weixin`
+- 小程序本体也要 ICP 备案（2023-09 起强制）
+- request 合法域名要求 HTTPS + 已备案域名；`*.tcloudbase.com` 无法加白 → 小程序端优先走 `wx.cloud.callFunction`（需把 CloudBase 环境与 AppID 绑定）
